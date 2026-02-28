@@ -1,0 +1,49 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# ${{ values.name }} — CI (Standard tier)
+# Thin workflow — all logic lives in ez-workflows.
+# ────────────────────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group:              ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    if: github.event_name == 'pull_request'
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/policy-check-reusable.yml@main
+    with:
+      helm-chart-path: helm
+      policy-path:     .ez/policies
+
+  ci:
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/ci-reusable.yml@main
+    with:
+      service-name:    ${{ values.name }}
+      ecr-repository:  ${{ values.ecrRepository }}
+      aws-account-id:  "${{ values.awsAccountId }}"
+      aws-region:      ${{ values.awsRegion }}
+      iam-role-arn:    ${{ values.ciRoleArn }}
+      test-command:    make test
+    secrets: inherit
+
+  deploy-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: ci
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@main
+    with:
+      service-name:       ${{ values.name }}
+      image-repository:   ${{ needs.ci.outputs.image-repository }}
+      image-tag:          ${{ needs.ci.outputs.image-tag }}
+      eks-cluster-name:   ${{ values.eksClusterName }}
+      eks-cluster-region: ${{ values.awsRegion }}
+      namespace:          ${{ values.namespace }}
+      environment:        dev
+      iam-role-arn:       ${{ values.cdDevRoleArn }}
+    secrets: inherit

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: ${{ values.name }}
+description: ${{ values.description }}
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+annotations:
+  backstage.io/kubernetes-id: ${{ values.name }}
+  ez.platform/tier:           standard
+  ez.platform/team:           ${{ values.team }}

@@ -1,0 +1,31 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# ${{ values.name }} — Production Deploy
+#
+# Triggers on semantic version tags: vX.Y.Z
+# Requires GitHub Environment "prod" approval (configured in repo settings).
+# ────────────────────────────────────────────────────────────────────────────────
+name: Deploy → prod
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  deploy-prod:
+    name: Deploy to prod
+    # GitHub Environment "prod" enforces required reviewers before this runs.
+    environment: prod
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@main
+    with:
+      service-name:       ${{ values.name }}
+      # Extract image tag from the git tag (strip 'v' prefix)
+      image-repository:   ${{ values.awsAccountId }}.dkr.ecr.${{ values.awsRegion }}.amazonaws.com/${{ values.ecrRepository }}
+      image-tag:          ${{ github.ref_name }}
+      eks-cluster-name:   ${{ values.eksClusterNameProd }}
+      eks-cluster-region: ${{ values.awsRegion }}
+      namespace:          ${{ values.namespace }}
+      environment:        prod
+      iam-role-arn:       ${{ values.cdProdRoleArn }}
+      helm-timeout:       "10m"
+    secrets: inherit

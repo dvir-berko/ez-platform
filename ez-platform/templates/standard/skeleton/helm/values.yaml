@@ -36,7 +36,7 @@ ingress:
 
 # ── Secrets (pulled from AWS Secrets Manager via External Secrets Operator) ──
 secrets:
-  awsSecretName: "${{ values.name }}/${{ '{' }}{{ .Values.global.environment }}{{ '}' }}/app"
+  awsSecretName: "${{ values.name }}/app"  # full path: <name>/<env>/app — env suffix added by CD workflow via --set
   additionalKeys: []
   # Example:
   #   - k8sKey: API_KEY

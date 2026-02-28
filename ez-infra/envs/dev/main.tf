@@ -68,8 +68,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 }
 
 # ── Services ──────────────────────────────────────────────────────────────────
-# Each service calls the ECR and OIDC modules.
-# Add a new block here when onboarding a service.
+# Step 1: Create ECR repos (no repo policy yet — avoids circular dependency)
 module "services" {
   for_each = var.services
   source   = "../../modules/ecr"
@@ -78,11 +77,12 @@ module "services" {
   service_name    = each.key
   team            = each.value.team
 
-  ci_role_arns = [
-    module.iam_roles[each.key].ci_role_arn
-  ]
+  # Roles attached separately below after IAM roles are created
+  ci_role_arns = []
+  cd_role_arns = []
 }
 
+# Step 2: Create IAM roles (needs ECR ARN from step 1)
 module "iam_roles" {
   for_each = var.services
   source   = "../../modules/iam-github-oidc"
@@ -97,6 +97,32 @@ module "iam_roles" {
   eks_cluster_arns    = [data.aws_eks_cluster.dev.arn]
 
   tags = { "ez.platform/service" = each.key }
+}
+
+# Step 3: Attach ECR repo policy now that IAM role ARNs are known
+resource "aws_ecr_repository_policy" "services" {
+  for_each   = var.services
+  repository = module.services[each.key].repository_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowCIPush"
+        Effect = "Allow"
+        Principal = { AWS = module.iam_roles[each.key].ci_role_arn }
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:CompleteLayerUpload",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+        ]
+      },
+    ]
+  })
 }
 
 # ── Namespaces ────────────────────────────────────────────────────────────────

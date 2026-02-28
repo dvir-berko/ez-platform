@@ -1,0 +1,29 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug:     ${{ values.githubOrg }}/${{ values.name }}
+    backstage.io/techdocs-ref:   dir:.
+    backstage.io/kubernetes-id:  ${{ values.name }}
+    ez.platform/tier:            lite
+    ez.platform/team:            ${{ values.team }}
+    ez.platform/ecr-repo:        ${{ values.ecrRepository }}
+    ez.platform/eks-cluster:     ${{ values.eksClusterName }}
+    ez.platform/namespace:       ${{ values.namespace }}
+  tags:
+    - ez-lite
+    - ${{ values.team }}
+  links:
+    - url:   https://github.com/${{ values.githubOrg }}/${{ values.name }}/actions
+      title: CI / CD
+      icon:  github
+    - url:   ${{ values.grafanaDashboardUrl | default("https://grafana.internal") }}
+      title: Grafana Dashboard
+      icon:  dashboard
+spec:
+  type:      service
+  lifecycle:  production
+  owner:     group:${{ values.team }}
+  system:    ez-platform

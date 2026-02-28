@@ -61,6 +61,7 @@ data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
+# Step 1: ECR repos (no policy yet)
 module "services" {
   for_each = var.services
   source   = "../../modules/ecr"
@@ -68,11 +69,13 @@ module "services" {
   repository_name = "${var.github_org}/${each.key}"
   service_name    = each.key
   team            = each.value.team
-  max_image_count = 100  # Keep more images in prod
+  max_image_count = 100
 
-  ci_role_arns = [module.iam_roles[each.key].ci_role_arn]
+  ci_role_arns = []
+  cd_role_arns = []
 }
 
+# Step 2: IAM roles (needs ECR ARN)
 module "iam_roles" {
   for_each = var.services
   source   = "../../modules/iam-github-oidc"
@@ -85,6 +88,32 @@ module "iam_roles" {
 
   ecr_repository_arns = [module.services[each.key].repository_arn]
   eks_cluster_arns    = [data.aws_eks_cluster.prod.arn]
+}
+
+# Step 3: Attach ECR repo policy with known IAM role ARNs
+resource "aws_ecr_repository_policy" "services" {
+  for_each   = var.services
+  repository = module.services[each.key].repository_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowCIPush"
+        Effect = "Allow"
+        Principal = { AWS = module.iam_roles[each.key].ci_role_arn }
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:CompleteLayerUpload",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+        ]
+      },
+    ]
+  })
 }
 
 module "namespaces" {
