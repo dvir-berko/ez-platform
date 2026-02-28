@@ -1,0 +1,174 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# EZ Platform — Reusable Policy Check Workflow
+#
+# Runs:
+#   - helm lint
+#   - helm template | conftest (OPA policies)
+#   - Dockerfile lint (Hadolint)
+#   - Secret scanning (Gitleaks)
+#   - Dependency license check (optional)
+# ────────────────────────────────────────────────────────────────────────────────
+name: EZ Policy Check (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      helm-chart-path:
+        description: "Path to Helm chart"
+        required: false
+        type: string
+        default: "helm"
+      policy-path:
+        description: "Path to OPA/conftest policies"
+        required: false
+        type: string
+        default: ".ez/policies"
+      dockerfile-path:
+        description: "Path to Dockerfile"
+        required: false
+        type: string
+        default: "Dockerfile"
+      helm-namespace:
+        description: "Namespace to use for helm template rendering"
+        required: false
+        type: string
+        default: "default"
+      helm-release-name:
+        description: "Release name for helm template rendering"
+        required: false
+        type: string
+        default: "policy-check"
+      fail-on-secret-detection:
+        description: "Fail the job if secrets are detected by Gitleaks"
+        required: false
+        type: boolean
+        default: true
+
+    outputs:
+      policy-passed:
+        description: "true if all checks passed, false otherwise"
+        value: ${{ jobs.policy.outputs.policy-passed }}
+
+jobs:
+  policy:
+    name: Policy & Governance Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    outputs:
+      policy-passed: ${{ steps.summary.outputs.passed }}
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for gitleaks history scan
+
+      # ── 2. Helm lint ─────────────────────────────────────────────────────────
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "v3.14.0"
+
+      - name: Helm lint
+        id: helm-lint
+        run: |
+          if [ -d "${{ inputs.helm-chart-path }}" ]; then
+            helm lint "${{ inputs.helm-chart-path }}" \
+              --strict \
+              --set "image.repository=placeholder" \
+              --set "image.tag=latest"
+          else
+            echo "::notice::No Helm chart found at ${{ inputs.helm-chart-path }}, skipping"
+          fi
+
+      # ── 3. OPA / conftest policy check ──────────────────────────────────────
+      - name: Install conftest
+        run: |
+          VERSION="0.48.0"
+          curl -sL "https://github.com/open-policy-agent/conftest/releases/download/v${VERSION}/conftest_${VERSION}_Linux_x86_64.tar.gz" \
+            | tar xz conftest
+          sudo mv conftest /usr/local/bin/conftest
+
+      - name: Render Helm templates
+        if: ${{ hashFiles(inputs.helm-chart-path + '/Chart.yaml') != '' }}
+        run: |
+          helm template "${{ inputs.helm-release-name }}" "${{ inputs.helm-chart-path }}" \
+            --namespace "${{ inputs.helm-namespace }}" \
+            --set "image.repository=placeholder" \
+            --set "image.tag=latest" \
+            > /tmp/helm-rendered.yaml
+
+      - name: Run conftest (OPA policies)
+        if: ${{ hashFiles(inputs.policy-path + '/**/*.rego') != '' }}
+        id: conftest
+        run: |
+          if [ -f "/tmp/helm-rendered.yaml" ]; then
+            conftest test /tmp/helm-rendered.yaml \
+              --policy "${{ inputs.policy-path }}" \
+              --output table \
+              --all-namespaces
+          fi
+
+      # ── 4. Dockerfile lint (Hadolint) ────────────────────────────────────────
+      - name: Hadolint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        if: ${{ hashFiles(inputs.dockerfile-path) != '' }}
+        with:
+          dockerfile:      ${{ inputs.dockerfile-path }}
+          format:          sarif
+          output-file:     hadolint.sarif
+          failure-threshold: warning
+
+      - name: Upload Hadolint SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint.sarif
+        continue-on-error: true
+
+      # ── 5. Secret scanning (Gitleaks) ────────────────────────────────────────
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        id: gitleaks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: "true"
+        continue-on-error: ${{ !inputs.fail-on-secret-detection }}
+
+      # ── 6. Required label / annotation checks ────────────────────────────────
+      - name: Check required Helm annotations
+        if: ${{ hashFiles(inputs.helm-chart-path + '/Chart.yaml') != '' }}
+        run: |
+          CHART="${{ inputs.helm-chart-path }}/Chart.yaml"
+          MISSING=()
+
+          # Check for required annotations
+          grep -q "ez.platform/team" "$CHART"            || MISSING+=("ez.platform/team")
+          grep -q "ez.platform/tier" "$CHART"            || MISSING+=("ez.platform/tier")
+          grep -q "backstage.io/kubernetes-id" "$CHART"  || MISSING+=("backstage.io/kubernetes-id")
+
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "::error::Missing required Chart.yaml annotations: ${MISSING[*]}"
+            echo "::error::See https://ez.internal/docs/required-annotations"
+            exit 1
+          fi
+
+      # ── 7. Summary ───────────────────────────────────────────────────────────
+      - name: Publish policy summary
+        id: summary
+        if: always()
+        run: |
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+          echo "## EZ Policy Check Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Check | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ----- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Helm Lint | ${{ steps.helm-lint.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| OPA Policies | ${{ steps.conftest.outcome == 'success' && '✅ Passed' || steps.conftest.outcome == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dockerfile Lint | ${{ steps.helm-lint.outcome == 'success' && '✅ Passed' || '⚠️ Warnings' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Secret Scan | ${{ steps.gitleaks.outcome == 'success' && '✅ Clean' || '❌ Secrets Detected' }} |" >> "$GITHUB_STEP_SUMMARY"

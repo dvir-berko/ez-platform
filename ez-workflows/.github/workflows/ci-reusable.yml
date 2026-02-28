@@ -1,0 +1,258 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# EZ Platform — Reusable CI Workflow
+#
+# Contract (inputs/outputs):
+#   Inputs : service name, ECR repo, AWS region, image tag override (optional)
+#   Outputs: image.repository, image.tag, sbom-artifact name
+#
+# Steps:
+#   1. Checkout + setup runtime
+#   2. Run unit tests
+#   3. Build Docker image
+#   4. Generate SBOM (Syft)
+#   5. Scan image (Grype)
+#   6. Authenticate to AWS via OIDC (no static keys)
+#   7. Push image to ECR
+#   8. Publish summary
+# ────────────────────────────────────────────────────────────────────────────────
+name: EZ CI (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: "Name of the service (used for image labels)"
+        required: true
+        type: string
+      ecr-repository:
+        description: "ECR repository name (e.g. my-org/my-service)"
+        required: true
+        type: string
+      aws-region:
+        description: "AWS region where ECR lives"
+        required: false
+        type: string
+        default: "us-east-1"
+      aws-account-id:
+        description: "AWS account ID for ECR registry URL"
+        required: true
+        type: string
+      image-tag:
+        description: "Override image tag (defaults to short SHA)"
+        required: false
+        type: string
+        default: ""
+      dockerfile-path:
+        description: "Path to Dockerfile"
+        required: false
+        type: string
+        default: "Dockerfile"
+      build-context:
+        description: "Docker build context"
+        required: false
+        type: string
+        default: "."
+      test-command:
+        description: "Command to run tests"
+        required: false
+        type: string
+        default: "make test"
+      scan-severity-threshold:
+        description: "Grype severity threshold (NEGLIGIBLE|LOW|MEDIUM|HIGH|CRITICAL)"
+        required: false
+        type: string
+        default: "HIGH"
+      iam-role-arn:
+        description: "IAM role ARN to assume via OIDC for ECR push"
+        required: true
+        type: string
+
+    outputs:
+      image-repository:
+        description: "Full ECR image repository URI"
+        value: ${{ jobs.ci.outputs.image-repository }}
+      image-tag:
+        description: "Image tag that was pushed"
+        value: ${{ jobs.ci.outputs.image-tag }}
+      image-uri:
+        description: "Full image URI (repository:tag)"
+        value: ${{ jobs.ci.outputs.image-uri }}
+      sbom-artifact:
+        description: "Name of the uploaded SBOM artifact"
+        value: ${{ jobs.ci.outputs.sbom-artifact }}
+
+    secrets:
+      # No static secrets needed — OIDC is used for AWS auth.
+      # Add any app-level secret names here if required.
+      EXTRA_BUILD_ARGS:
+        description: "Optional Docker --build-arg values (newline-separated)"
+        required: false
+
+jobs:
+  ci:
+    name: Build · Test · Scan · Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read          # checkout
+      id-token: write         # OIDC → AWS
+      packages: read          # optional: pull base images from GHCR
+      security-events: write  # upload SARIF to GitHub Security tab
+
+    outputs:
+      image-repository: ${{ steps.meta.outputs.repository }}
+      image-tag:        ${{ steps.meta.outputs.tag }}
+      image-uri:        ${{ steps.meta.outputs.uri }}
+      sbom-artifact:    sbom-${{ inputs.service-name }}-${{ steps.meta.outputs.tag }}
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for accurate diff
+
+      # ── 2. Compute image tag ────────────────────────────────────────────────
+      - name: Compute image metadata
+        id: meta
+        run: |
+          REGISTRY="${{ inputs.aws-account-id }}.dkr.ecr.${{ inputs.aws-region }}.amazonaws.com"
+          REPO="${{ inputs.ecr-repository }}"
+          TAG="${{ inputs.image-tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_SHA::8}"
+          fi
+          echo "registry=$REGISTRY"  >> "$GITHUB_OUTPUT"
+          echo "repository=$REGISTRY/$REPO" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"            >> "$GITHUB_OUTPUT"
+          echo "uri=$REGISTRY/$REPO:$TAG" >> "$GITHUB_OUTPUT"
+
+      # ── 3. Detect runtime and set up toolchain ──────────────────────────────
+      - name: Set up Python (if pyproject.toml / requirements.txt exists)
+        if: ${{ hashFiles('pyproject.toml', 'requirements*.txt') != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Set up Node (if package.json exists)
+        if: ${{ hashFiles('package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Set up Go (if go.mod exists)
+        if: ${{ hashFiles('go.mod') != '' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # ── 4. Install dependencies ─────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+          if [ -f "package-lock.json" ]; then npm ci; fi
+          if [ -f "go.mod" ]; then go mod download; fi
+
+      # ── 5. Run tests ────────────────────────────────────────────────────────
+      - name: Run tests
+        run: ${{ inputs.test-command }}
+        env:
+          CI: "true"
+
+      # ── 6. Set up Docker Buildx ─────────────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── 7. Build image (no push yet) ────────────────────────────────────────
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.build-context }}
+          file:    ${{ inputs.dockerfile-path }}
+          load:    true   # load into local daemon for scan
+          push:    false
+          tags:    ${{ steps.meta.outputs.uri }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            ez.service=${{ inputs.service-name }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+          build-args: ${{ secrets.EXTRA_BUILD_ARGS }}
+
+      # ── 8. Generate SBOM (Syft) ─────────────────────────────────────────────
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image:            ${{ steps.meta.outputs.uri }}
+          format:           spdx-json
+          output-file:      sbom.spdx.json
+          artifact-name:    sbom-${{ inputs.service-name }}-${{ steps.meta.outputs.tag }}
+          upload-artifact:  true
+
+      # ── 9. Scan image (Grype) ───────────────────────────────────────────────
+      - name: Scan image with Grype
+        uses: anchore/scan-action@v3
+        id: grype
+        with:
+          image:             ${{ steps.meta.outputs.uri }}
+          severity-cutoff:   ${{ inputs.scan-severity-threshold }}
+          output-format:     sarif
+          fail-build:        true
+
+      - name: Upload Grype SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+
+      # ── 10. Authenticate to AWS via OIDC ────────────────────────────────────
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume:    ${{ inputs.iam-role-arn }}
+          aws-region:        ${{ inputs.aws-region }}
+          role-session-name: ez-ci-${{ inputs.service-name }}
+
+      # ── 11. Login to ECR ────────────────────────────────────────────────────
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── 12. Push image to ECR ───────────────────────────────────────────────
+      - name: Push image to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context:   ${{ inputs.build-context }}
+          file:      ${{ inputs.dockerfile-path }}
+          push:      true
+          tags: |
+            ${{ steps.meta.outputs.uri }}
+            ${{ steps.meta.outputs.repository }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            ez.service=${{ inputs.service-name }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+          build-args: ${{ secrets.EXTRA_BUILD_ARGS }}
+
+      # ── 13. Publish job summary ─────────────────────────────────────────────
+      - name: Publish CI summary
+        if: always()
+        run: |
+          echo "## EZ CI Summary — ${{ inputs.service-name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ----- | ----- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image URI | \`${{ steps.meta.outputs.uri }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit SHA | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SBOM | sbom-${{ inputs.service-name }}-${{ steps.meta.outputs.tag }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Scan Threshold | ${{ inputs.scan-severity-threshold }} |" >> "$GITHUB_STEP_SUMMARY"

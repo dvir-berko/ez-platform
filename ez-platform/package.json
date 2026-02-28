@@ -1,0 +1,24 @@
+{
+  "name": "ez-platform",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=18 <20"
+  },
+  "scripts": {
+    "dev":         "concurrently \"yarn workspace @ez/backend start\" \"yarn workspace @ez/app start\"",
+    "start":       "yarn workspace @ez/app start",
+    "start-backend": "yarn workspace @ez/backend start",
+    "build:all":   "yarn workspaces foreach --all --topological-dev --include '*' run build",
+    "lint:all":    "yarn workspaces foreach --all run lint",
+    "test:all":    "yarn workspaces foreach --all run test"
+  },
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ]
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}

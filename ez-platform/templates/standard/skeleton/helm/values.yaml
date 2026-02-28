@@ -1,0 +1,100 @@
+# Default values for ${{ values.name }} (Standard tier)
+
+image:
+  repository: ""
+  tag:        "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+autoscaling:
+  enabled:                        true
+  minReplicas:                    2
+  maxReplicas:                    10
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu:    "200m"
+    memory: "256Mi"
+  limits:
+    cpu:    "1000m"
+    memory: "1Gi"
+
+service:
+  type:       ClusterIP
+  port:       80
+  targetPort: 8080
+
+ingress:
+  enabled:   false
+  className: "nginx"
+  annotations: {}
+  host:      ""
+  path:      "/"
+  tls:       []
+
+# ── Secrets (pulled from AWS Secrets Manager via External Secrets Operator) ──
+secrets:
+  awsSecretName: "${{ values.name }}/${{ '{' }}{{ .Values.global.environment }}{{ '}' }}/app"
+  additionalKeys: []
+  # Example:
+  #   - k8sKey: API_KEY
+  #     awsProperty: api_key
+
+# ── Database (managed by Terraform, connection string in Secrets Manager) ────
+database:
+  enabled: true
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 15
+  periodSeconds:       20
+  failureThreshold:    3
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds:       10
+  failureThreshold:    5
+
+env:
+  APP_ENV: "production"
+  PORT:    "8080"
+
+podDisruptionBudget:
+  enabled:      true
+  minAvailable: 1
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser:    10001
+  runAsGroup:   10001
+  fsGroup:      10001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem:   true
+  capabilities:
+    drop: ["ALL"]
+
+serviceAccount:
+  create:      true
+  annotations: {}  # Add eks.amazonaws.com/role-arn for IRSA
+
+topologySpreadConstraints:
+  - maxSkew:           1
+    topologyKey:       kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: ${{ values.name }}
+
+global:
+  environment: ""
+  commitSha:   ""
+  team:        "${{ values.team }}"

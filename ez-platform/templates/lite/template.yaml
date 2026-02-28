@@ -1,0 +1,214 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ez-lite-service
+  title: EZ Lite Service
+  description: >
+    Create a production-ready stateless service on the EZ Golden Path.
+    Includes CI/CD, ECR, EKS Helm deploy, observability hooks, and Backstage catalog registration.
+  tags:
+    - ez
+    - lite
+    - python
+    - kubernetes
+  annotations:
+    backstage.io/managed-by-location: "url:https://github.com/your-org/ez-platform/blob/main/templates/lite/template.yaml"
+
+spec:
+  owner: group:platform-engineering
+  type: service
+
+  # ── Input parameters (what the developer fills in the portal form) ──────────
+  parameters:
+    - title: Service Identity
+      required:
+        - name
+        - description
+        - team
+        - owner
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: "Unique service name (lowercase, hyphens allowed). Example: payment-processor"
+          pattern: "^[a-z][a-z0-9-]{1,52}[a-z0-9]$"
+          ui:autofocus: true
+        description:
+          title: Short Description
+          type: string
+          description: "One-line description of what this service does"
+          maxLength: 200
+        team:
+          title: Owning Team
+          type: string
+          description: "Team identifier (used for labels, on-call routing, cost attribution)"
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds: [Group]
+        owner:
+          title: Technical Owner (GitHub handle)
+          type: string
+          description: "GitHub username of primary owner"
+
+    - title: AWS & Kubernetes Config
+      required:
+        - awsAccountId
+        - awsRegion
+        - eksClusterName
+        - eksClusterNameProd
+        - namespace
+        - ecrRepository
+      properties:
+        awsAccountId:
+          title: AWS Account ID
+          type: string
+          description: "12-digit AWS account ID where ECR and EKS live"
+          pattern: "^[0-9]{12}$"
+        awsRegion:
+          title: AWS Region
+          type: string
+          default: us-east-1
+          enum:
+            - us-east-1
+            - us-west-2
+            - eu-west-1
+            - ap-southeast-1
+        eksClusterName:
+          title: EKS Cluster (Dev/Staging)
+          type: string
+          description: "EKS cluster name for dev deploys"
+          default: ez-dev
+        eksClusterNameProd:
+          title: EKS Cluster (Prod)
+          type: string
+          description: "EKS cluster name for prod deploys"
+          default: ez-prod
+        namespace:
+          title: Kubernetes Namespace
+          type: string
+          description: "Namespace to deploy into (will be created if missing)"
+        ecrRepository:
+          title: ECR Repository Name
+          type: string
+          description: "ECR repository (e.g. my-org/my-service)"
+
+    - title: IAM Roles (OIDC)
+      required:
+        - ciRoleArn
+        - cdDevRoleArn
+        - cdProdRoleArn
+      properties:
+        ciRoleArn:
+          title: CI IAM Role ARN
+          type: string
+          description: "IAM role for CI (ECR push). Format: arn:aws:iam::<account>:role/<name>"
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+        cdDevRoleArn:
+          title: CD Dev IAM Role ARN
+          type: string
+          description: "IAM role for dev deploys (EKS access)"
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+        cdProdRoleArn:
+          title: CD Prod IAM Role ARN
+          type: string
+          description: "IAM role for prod deploys (EKS access)"
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+
+    - title: GitHub
+      required:
+        - githubOrg
+        - repoName
+      properties:
+        githubOrg:
+          title: GitHub Organization
+          type: string
+          default: "your-org"
+        repoName:
+          title: Repository Name
+          type: string
+          description: "GitHub repo name (defaults to service name)"
+        repoVisibility:
+          title: Repository Visibility
+          type: string
+          default: private
+          enum: [private, internal, public]
+        grafanaDashboardUrl:
+          title: Grafana Dashboard URL (optional)
+          type: string
+          description: "Leave blank to use default"
+
+  # ── Steps (what Backstage runs when the form is submitted) ─────────────────
+  steps:
+    - id: fetch-template
+      name: Fetch skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name:               ${{ parameters.name }}
+          description:        ${{ parameters.description }}
+          team:               ${{ parameters.team }}
+          owner:              ${{ parameters.owner }}
+          awsAccountId:       ${{ parameters.awsAccountId }}
+          awsRegion:          ${{ parameters.awsRegion }}
+          eksClusterName:     ${{ parameters.eksClusterName }}
+          eksClusterNameProd: ${{ parameters.eksClusterNameProd }}
+          namespace:          ${{ parameters.namespace }}
+          ecrRepository:      ${{ parameters.ecrRepository }}
+          ciRoleArn:          ${{ parameters.ciRoleArn }}
+          cdDevRoleArn:       ${{ parameters.cdDevRoleArn }}
+          cdProdRoleArn:      ${{ parameters.cdProdRoleArn }}
+          githubOrg:          ${{ parameters.githubOrg }}
+          grafanaDashboardUrl: ${{ parameters.grafanaDashboardUrl }}
+
+    - id: create-repo
+      name: Create GitHub repository
+      action: publish:github
+      input:
+        allowedHosts: [github.com]
+        description:  ${{ parameters.description }}
+        repoUrl:      github.com?owner=${{ parameters.githubOrg }}&repo=${{ parameters.repoName || parameters.name }}
+        visibility:   ${{ parameters.repoVisibility }}
+        defaultBranch: main
+        repoVariables:
+          EKS_CLUSTER_NAME:  ${{ parameters.eksClusterName }}
+          AWS_REGION:        ${{ parameters.awsRegion }}
+        topics:
+          - ez-platform
+          - ez-lite
+          - ${{ parameters.team }}
+
+    - id: register-catalog
+      name: Register in Backstage catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['create-repo'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  # ── Output links shown to developer after provisioning ─────────────────────
+  output:
+    links:
+      - title: GitHub Repository
+        url:   ${{ steps['create-repo'].output.remoteUrl }}
+        icon:  github
+      - title: EZ Portal — Service Page
+        url:   ${{ steps['register-catalog'].output.entityRef }}
+        icon:  catalog
+    text:
+      - title: Next Steps
+        content: |
+          ## Your service is live! 🚀
+
+          1. **CI runs automatically** — check the Actions tab in your new repo
+          2. **Dev deploys** trigger on every merge to `main`
+          3. **Prod deploy** — create a tag: `git tag v1.0.0 && git push origin v1.0.0`
+             Then approve the deployment in GitHub (Environment: prod)
+
+          ### First things to customize
+          - Edit `src/main.py` to add your endpoints
+          - Add environment variables in `helm/values.yaml`
+          - Update `docs/runbook.md` with your service-specific runbook
+
+          ### Get help
+          - [EZ Docs](https://ez.internal/docs)
+          - [#platform-engineering](https://slack.internal/channels/platform-engineering)

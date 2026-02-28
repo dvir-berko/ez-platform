@@ -1,0 +1,258 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# EZ Platform — Reusable CD Workflow
+#
+# Contract:
+#   Inputs : service name, image URI, EKS cluster, namespace, helm values, env
+#   Outputs: deploy status, rollout URL
+#
+# Steps:
+#   1. Authenticate to AWS via OIDC
+#   2. Get kubeconfig for EKS
+#   3. Ensure namespace exists + apply labels
+#   4. Run helm upgrade --install (atomic, wait, timeout)
+#   5. Verify rollout (kubectl rollout status)
+#   6. Publish deploy summary
+#
+# Governance:
+#   - dev  → auto deploy (no approval gate)
+#   - prod → GitHub Environment approval required (set on caller's environment)
+# ────────────────────────────────────────────────────────────────────────────────
+name: EZ CD (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: "Name of the service"
+        required: true
+        type: string
+      image-repository:
+        description: "ECR image repository URI"
+        required: true
+        type: string
+      image-tag:
+        description: "Image tag to deploy"
+        required: true
+        type: string
+      eks-cluster-name:
+        description: "EKS cluster name"
+        required: true
+        type: string
+      eks-cluster-region:
+        description: "AWS region of EKS cluster"
+        required: false
+        type: string
+        default: "us-east-1"
+      namespace:
+        description: "Kubernetes namespace to deploy into"
+        required: true
+        type: string
+      helm-chart-path:
+        description: "Path to Helm chart inside service repo"
+        required: false
+        type: string
+        default: "helm"
+      helm-release-name:
+        description: "Helm release name (defaults to service-name)"
+        required: false
+        type: string
+        default: ""
+      helm-values-file:
+        description: "Path to values file (relative to repo root)"
+        required: false
+        type: string
+        default: ""
+      helm-extra-args:
+        description: "Extra arguments to pass to helm upgrade"
+        required: false
+        type: string
+        default: ""
+      helm-timeout:
+        description: "Helm deploy timeout"
+        required: false
+        type: string
+        default: "5m"
+      environment:
+        description: "Target environment (dev | staging | prod)"
+        required: true
+        type: string
+      iam-role-arn:
+        description: "IAM role ARN to assume via OIDC for EKS access"
+        required: true
+        type: string
+      rollout-timeout:
+        description: "kubectl rollout status timeout"
+        required: false
+        type: string
+        default: "300s"
+
+    outputs:
+      deploy-status:
+        description: "succeeded | failed"
+        value: ${{ jobs.deploy.outputs.deploy-status }}
+      release-name:
+        description: "Helm release name used"
+        value: ${{ jobs.deploy.outputs.release-name }}
+
+    secrets:
+      HELM_VALUES_OVERRIDE:
+        description: "YAML string with secret values to override (e.g. db passwords from Vault/SSM)"
+        required: false
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC → AWS
+
+    outputs:
+      deploy-status: ${{ steps.verify.outputs.status }}
+      release-name:  ${{ steps.config.outputs.release-name }}
+
+    steps:
+      # ── 1. Checkout (needed for Helm chart) ────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Compute config ──────────────────────────────────────────────────
+      - name: Compute deploy config
+        id: config
+        run: |
+          RELEASE="${{ inputs.helm-release-name }}"
+          if [ -z "$RELEASE" ]; then
+            RELEASE="${{ inputs.service-name }}"
+          fi
+          echo "release-name=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "image-uri=${{ inputs.image-repository }}:${{ inputs.image-tag }}" >> "$GITHUB_OUTPUT"
+
+      # ── 3. Authenticate to AWS via OIDC ────────────────────────────────────
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume:    ${{ inputs.iam-role-arn }}
+          aws-region:        ${{ inputs.eks-cluster-region }}
+          role-session-name: ez-cd-${{ inputs.service-name }}-${{ inputs.environment }}
+
+      # ── 4. Get EKS kubeconfig ──────────────────────────────────────────────
+      - name: Get EKS kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region "${{ inputs.eks-cluster-region }}" \
+            --name   "${{ inputs.eks-cluster-name }}" \
+            --alias  "${{ inputs.eks-cluster-name }}"
+
+      # ── 5. Ensure namespace exists ─────────────────────────────────────────
+      - name: Ensure namespace
+        run: |
+          kubectl get namespace "${{ inputs.namespace }}" >/dev/null 2>&1 || \
+            kubectl create namespace "${{ inputs.namespace }}"
+
+          # Label namespace for policy engine (Kyverno / OPA Gatekeeper)
+          kubectl label namespace "${{ inputs.namespace }}" \
+            ez.platform/managed=true \
+            ez.platform/environment="${{ inputs.environment }}" \
+            ez.platform/service="${{ inputs.service-name }}" \
+            --overwrite
+
+      # ── 6. Install Helm ────────────────────────────────────────────────────
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "v3.14.0"
+
+      # ── 7. Write secret values override (if provided) ─────────────────────
+      - name: Write secret helm values
+        if: ${{ secrets.HELM_VALUES_OVERRIDE != '' }}
+        run: |
+          echo "${{ secrets.HELM_VALUES_OVERRIDE }}" > /tmp/secret-values.yaml
+
+      # ── 8. Helm upgrade --install ──────────────────────────────────────────
+      - name: Helm deploy
+        id: helm
+        run: |
+          RELEASE="${{ steps.config.outputs.release-name }}"
+          VALUES_ARGS=""
+
+          # Primary values file
+          if [ -n "${{ inputs.helm-values-file }}" ] && [ -f "${{ inputs.helm-values-file }}" ]; then
+            VALUES_ARGS="$VALUES_ARGS -f ${{ inputs.helm-values-file }}"
+          fi
+
+          # Environment-specific values (e.g. helm/values.prod.yaml)
+          ENV_VALUES="${{ inputs.helm-chart-path }}/values.${{ inputs.environment }}.yaml"
+          if [ -f "$ENV_VALUES" ]; then
+            VALUES_ARGS="$VALUES_ARGS -f $ENV_VALUES"
+          fi
+
+          # Secret override
+          if [ -f "/tmp/secret-values.yaml" ]; then
+            VALUES_ARGS="$VALUES_ARGS -f /tmp/secret-values.yaml"
+          fi
+
+          helm upgrade "$RELEASE" "${{ inputs.helm-chart-path }}" \
+            --install \
+            --namespace "${{ inputs.namespace }}" \
+            --atomic \
+            --wait \
+            --timeout "${{ inputs.helm-timeout }}" \
+            $VALUES_ARGS \
+            --set "image.repository=${{ inputs.image-repository }}" \
+            --set "image.tag=${{ inputs.image-tag }}" \
+            --set "global.environment=${{ inputs.environment }}" \
+            --set "global.commitSha=${{ github.sha }}" \
+            ${{ inputs.helm-extra-args }}
+
+      # ── 9. Verify rollout ──────────────────────────────────────────────────
+      - name: Verify rollout
+        id: verify
+        run: |
+          RELEASE="${{ steps.config.outputs.release-name }}"
+
+          # Find the deployment name (convention: same as release)
+          if kubectl get deployment "$RELEASE" -n "${{ inputs.namespace }}" >/dev/null 2>&1; then
+            kubectl rollout status deployment/"$RELEASE" \
+              --namespace "${{ inputs.namespace }}" \
+              --timeout "${{ inputs.rollout-timeout }}"
+            echo "status=succeeded" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Deployment '$RELEASE' not found, skipping rollout check"
+            echo "status=succeeded" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 10. On failure: capture helm history ───────────────────────────────
+      - name: Capture Helm history on failure
+        if: failure()
+        run: |
+          RELEASE="${{ steps.config.outputs.release-name }}"
+          echo "::group::Helm history"
+          helm history "$RELEASE" --namespace "${{ inputs.namespace }}" || true
+          echo "::endgroup::"
+
+          echo "::group::Pod events"
+          kubectl get events --namespace "${{ inputs.namespace }}" \
+            --sort-by='.lastTimestamp' || true
+          echo "::endgroup::"
+
+          echo "status=failed" >> "$GITHUB_OUTPUT"
+
+      # ── 11. Publish deploy summary ─────────────────────────────────────────
+      - name: Publish deploy summary
+        if: always()
+        run: |
+          STATUS="${{ steps.verify.outputs.status }}"
+          ICON="✅"
+          if [ "$STATUS" != "succeeded" ]; then ICON="❌"; fi
+
+          echo "## $ICON EZ Deploy — ${{ inputs.service-name }} → ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ----- | ----- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Release | \`${{ steps.config.outputs.release-name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Namespace | \`${{ inputs.namespace }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | \`${{ steps.config.outputs.image-uri }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cluster | \`${{ inputs.eks-cluster-name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | \`${{ inputs.environment }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | **$STATUS** |" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,92 @@
+# Composite action: Deploy a Helm chart to Kubernetes
+# Wraps helm upgrade --install with EZ platform defaults.
+name: Helm Deploy
+description: "Runs helm upgrade --install with atomic, wait, and verification"
+
+inputs:
+  release-name:
+    description: "Helm release name"
+    required: true
+  chart-path:
+    description: "Path to the Helm chart"
+    required: true
+  namespace:
+    description: "Kubernetes namespace"
+    required: true
+  image-repository:
+    description: "Container image repository"
+    required: true
+  image-tag:
+    description: "Container image tag"
+    required: true
+  environment:
+    description: "Target environment"
+    required: true
+  values-file:
+    description: "Additional values file"
+    required: false
+    default: ""
+  extra-set-args:
+    description: "Additional --set arguments"
+    required: false
+    default: ""
+  timeout:
+    description: "Helm deploy timeout"
+    required: false
+    default: "5m"
+  helm-version:
+    description: "Helm CLI version"
+    required: false
+    default: "v3.14.0"
+
+outputs:
+  revision:
+    description: "Helm release revision number"
+    value: ${{ steps.deploy.outputs.revision }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: ${{ inputs.helm-version }}
+
+    - name: Helm upgrade --install
+      id: deploy
+      shell: bash
+      run: |
+        VALUES_ARGS=""
+        if [ -n "${{ inputs.values-file }}" ] && [ -f "${{ inputs.values-file }}" ]; then
+          VALUES_ARGS="-f ${{ inputs.values-file }}"
+        fi
+
+        ENV_VALUES="${{ inputs.chart-path }}/values.${{ inputs.environment }}.yaml"
+        if [ -f "$ENV_VALUES" ]; then
+          VALUES_ARGS="$VALUES_ARGS -f $ENV_VALUES"
+        fi
+
+        helm upgrade "${{ inputs.release-name }}" "${{ inputs.chart-path }}" \
+          --install \
+          --namespace "${{ inputs.namespace }}" \
+          --create-namespace \
+          --atomic \
+          --wait \
+          --timeout "${{ inputs.timeout }}" \
+          $VALUES_ARGS \
+          --set "image.repository=${{ inputs.image-repository }}" \
+          --set "image.tag=${{ inputs.image-tag }}" \
+          --set "global.environment=${{ inputs.environment }}" \
+          ${{ inputs.extra-set-args }}
+
+        REVISION=$(helm list -n "${{ inputs.namespace }}" \
+          --filter "^${{ inputs.release-name }}$" \
+          --output json | jq -r '.[0].revision')
+        echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+
+    - name: Verify rollout
+      shell: bash
+      run: |
+        kubectl rollout status deployment/"${{ inputs.release-name }}" \
+          --namespace "${{ inputs.namespace }}" \
+          --timeout 300s

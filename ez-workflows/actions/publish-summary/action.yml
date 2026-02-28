@@ -1,0 +1,64 @@
+# Composite action: Publish a structured deploy summary to GitHub Step Summary
+name: Publish EZ Summary
+description: "Writes a structured markdown summary to the GitHub Actions job summary"
+
+inputs:
+  service-name:
+    description: "Service name"
+    required: true
+  image-uri:
+    description: "Full image URI deployed"
+    required: false
+    default: ""
+  environment:
+    description: "Target environment"
+    required: true
+  namespace:
+    description: "Kubernetes namespace"
+    required: false
+    default: ""
+  cluster-name:
+    description: "EKS cluster name"
+    required: false
+    default: ""
+  status:
+    description: "succeeded | failed | skipped"
+    required: true
+  portal-url:
+    description: "Link to service in EZ Portal"
+    required: false
+    default: ""
+  dashboard-url:
+    description: "Link to Grafana dashboard"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Write summary
+      shell: bash
+      run: |
+        STATUS="${{ inputs.status }}"
+        case "$STATUS" in
+          succeeded) ICON="✅" ;;
+          failed)    ICON="❌" ;;
+          *)         ICON="⏭️" ;;
+        esac
+
+        {
+          echo "## $ICON EZ Deploy — ${{ inputs.service-name }} (${{ inputs.environment }})"
+          echo ""
+          echo "| Field | Value |"
+          echo "| ----- | ----- |"
+          echo "| Service | \`${{ inputs.service-name }}\` |"
+          echo "| Environment | \`${{ inputs.environment }}\` |"
+          [ -n "${{ inputs.namespace }}" ]    && echo "| Namespace | \`${{ inputs.namespace }}\` |"
+          [ -n "${{ inputs.cluster-name }}" ] && echo "| Cluster | \`${{ inputs.cluster-name }}\` |"
+          [ -n "${{ inputs.image-uri }}" ]    && echo "| Image | \`${{ inputs.image-uri }}\` |"
+          echo "| Commit | \`${{ github.sha }}\` |"
+          echo "| Status | **$STATUS** |"
+          echo ""
+          [ -n "${{ inputs.portal-url }}" ]    && echo "🔗 [EZ Portal](${{ inputs.portal-url }}) &nbsp;|&nbsp;"
+          [ -n "${{ inputs.dashboard-url }}" ] && echo "📊 [Grafana Dashboard](${{ inputs.dashboard-url }})"
+        } >> "$GITHUB_STEP_SUMMARY"

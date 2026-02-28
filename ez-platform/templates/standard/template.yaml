@@ -1,0 +1,189 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ez-standard-service
+  title: EZ Standard Service
+  description: >
+    Create a production-ready service with database (RDS Postgres), secrets
+    management (AWS Secrets Manager via External Secrets Operator), and
+    Terraform-managed infrastructure. Includes full CI/CD, Helm deploy, observability.
+  tags:
+    - ez
+    - standard
+    - python
+    - kubernetes
+    - database
+
+spec:
+  owner: group:platform-engineering
+  type: service
+
+  parameters:
+    - title: Service Identity
+      required: [name, description, team, owner]
+      properties:
+        name:
+          title: Service Name
+          type: string
+          pattern: "^[a-z][a-z0-9-]{1,52}[a-z0-9]$"
+          ui:autofocus: true
+        description:
+          title: Short Description
+          type: string
+          maxLength: 200
+        team:
+          title: Owning Team
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds: [Group]
+        owner:
+          title: Technical Owner (GitHub handle)
+          type: string
+
+    - title: AWS & Kubernetes Config
+      required: [awsAccountId, awsRegion, eksClusterName, eksClusterNameProd, namespace, ecrRepository]
+      properties:
+        awsAccountId:
+          title: AWS Account ID
+          type: string
+          pattern: "^[0-9]{12}$"
+        awsRegion:
+          title: AWS Region
+          type: string
+          default: us-east-1
+          enum: [us-east-1, us-west-2, eu-west-1, ap-southeast-1]
+        eksClusterName:
+          title: EKS Cluster (Dev/Staging)
+          type: string
+          default: ez-dev
+        eksClusterNameProd:
+          title: EKS Cluster (Prod)
+          type: string
+          default: ez-prod
+        namespace:
+          title: Kubernetes Namespace
+          type: string
+        ecrRepository:
+          title: ECR Repository Name
+          type: string
+
+    - title: Database (RDS)
+      required: [dbEngine, dbInstanceClass]
+      properties:
+        dbEngine:
+          title: Database Engine
+          type: string
+          default: postgres
+          enum: [postgres, mysql]
+        dbInstanceClass:
+          title: RDS Instance Class
+          type: string
+          default: db.t3.micro
+          enum: [db.t3.micro, db.t3.small, db.t3.medium, db.r6g.large]
+        dbName:
+          title: Database Name
+          type: string
+          default: "${{ parameters.name | replace('-', '_') }}"
+        multiAz:
+          title: Multi-AZ (prod recommended)
+          type: boolean
+          default: true
+
+    - title: IAM Roles (OIDC)
+      required: [ciRoleArn, cdDevRoleArn, cdProdRoleArn, tfDevRoleArn, tfProdRoleArn]
+      properties:
+        ciRoleArn:
+          title: CI IAM Role ARN
+          type: string
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+        cdDevRoleArn:
+          title: CD Dev IAM Role ARN
+          type: string
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+        cdProdRoleArn:
+          title: CD Prod IAM Role ARN
+          type: string
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+        tfDevRoleArn:
+          title: Terraform Dev IAM Role ARN
+          type: string
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+        tfProdRoleArn:
+          title: Terraform Prod IAM Role ARN
+          type: string
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+
+    - title: GitHub
+      required: [githubOrg, repoName]
+      properties:
+        githubOrg:
+          title: GitHub Organization
+          type: string
+          default: "your-org"
+        repoName:
+          title: Repository Name
+          type: string
+        repoVisibility:
+          title: Repository Visibility
+          type: string
+          default: private
+          enum: [private, internal, public]
+
+  steps:
+    - id: fetch-template
+      name: Fetch skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name:               ${{ parameters.name }}
+          description:        ${{ parameters.description }}
+          team:               ${{ parameters.team }}
+          owner:              ${{ parameters.owner }}
+          awsAccountId:       ${{ parameters.awsAccountId }}
+          awsRegion:          ${{ parameters.awsRegion }}
+          eksClusterName:     ${{ parameters.eksClusterName }}
+          eksClusterNameProd: ${{ parameters.eksClusterNameProd }}
+          namespace:          ${{ parameters.namespace }}
+          ecrRepository:      ${{ parameters.ecrRepository }}
+          dbEngine:           ${{ parameters.dbEngine }}
+          dbInstanceClass:    ${{ parameters.dbInstanceClass }}
+          dbName:             ${{ parameters.dbName }}
+          multiAz:            ${{ parameters.multiAz }}
+          ciRoleArn:          ${{ parameters.ciRoleArn }}
+          cdDevRoleArn:       ${{ parameters.cdDevRoleArn }}
+          cdProdRoleArn:      ${{ parameters.cdProdRoleArn }}
+          tfDevRoleArn:       ${{ parameters.tfDevRoleArn }}
+          tfProdRoleArn:      ${{ parameters.tfProdRoleArn }}
+          githubOrg:          ${{ parameters.githubOrg }}
+
+    - id: create-repo
+      name: Create GitHub repository
+      action: publish:github
+      input:
+        allowedHosts: [github.com]
+        description:  ${{ parameters.description }}
+        repoUrl:      github.com?owner=${{ parameters.githubOrg }}&repo=${{ parameters.repoName }}
+        visibility:   ${{ parameters.repoVisibility }}
+        defaultBranch: main
+        topics:
+          - ez-platform
+          - ez-standard
+          - ${{ parameters.team }}
+
+    - id: register-catalog
+      name: Register in Backstage catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['create-repo'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: GitHub Repository
+        url:   ${{ steps['create-repo'].output.remoteUrl }}
+        icon:  github
+      - title: EZ Portal
+        url:   ${{ steps['register-catalog'].output.entityRef }}
+        icon:  catalog

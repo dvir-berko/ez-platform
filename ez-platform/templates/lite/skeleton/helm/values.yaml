@@ -1,0 +1,101 @@
+# Default values for ${{ values.name }}.
+# Override per environment in values.dev.yaml / values.prod.yaml
+
+# ── Image ────────────────────────────────────────────────────────────────────
+image:
+  repository: ""       # Set by CD workflow: <account>.dkr.ecr.<region>.amazonaws.com/<repo>
+  tag:        "latest" # Set by CD workflow: short git SHA
+  pullPolicy: IfNotPresent
+
+# ── Replicas ─────────────────────────────────────────────────────────────────
+replicaCount: 2
+
+# ── Autoscaling ──────────────────────────────────────────────────────────────
+autoscaling:
+  enabled:                        true
+  minReplicas:                    2
+  maxReplicas:                    10
+  targetCPUUtilizationPercentage: 70
+
+# ── Resources ────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu:    "100m"
+    memory: "128Mi"
+  limits:
+    cpu:    "500m"
+    memory: "512Mi"
+
+# ── Service ──────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# ── Ingress ──────────────────────────────────────────────────────────────────
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  host: ""
+  path: "/"
+  tls: []
+
+# ── Probes ───────────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds:       15
+  failureThreshold:    3
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds:       10
+  failureThreshold:    3
+
+# ── Environment ──────────────────────────────────────────────────────────────
+env:
+  APP_ENV: "production"
+  PORT:    "8080"
+
+# ── Pod Disruption Budget ────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled:        true
+  minAvailable:   1
+
+# ── Security Context ─────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser:    10001
+  runAsGroup:   10001
+  fsGroup:      10001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem:   true
+  capabilities:
+    drop: ["ALL"]
+
+# ── Service Account ──────────────────────────────────────────────────────────
+serviceAccount:
+  create:      true
+  annotations: {}   # Add IRSA annotation here for AWS service access
+
+# ── Topology Spread ──────────────────────────────────────────────────────────
+topologySpreadConstraints:
+  - maxSkew:           1
+    topologyKey:       kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: ${{ values.name }}
+
+# ── Global (set by CD workflow) ───────────────────────────────────────────────
+global:
+  environment: ""
+  commitSha:   ""

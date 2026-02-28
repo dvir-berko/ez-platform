@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ez.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ez.labels" . | nindent 4 }}
+  annotations:
+    ez.platform/commit-sha: {{ .Values.global.commitSha | default "unknown" | quote }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ez.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge:       1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "ez.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ toJson .Values.env | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "ez.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name:          http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol:      TCP
+          env:
+            {{- range $key, $val := .Values.env }}
+            - name:  {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+            - name:  APP_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            # ── Secrets from External Secrets Operator ─────────────────────
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ez.fullname" . }}-secrets
+                  key:  DATABASE_URL
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name:      tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      terminationGracePeriodSeconds: 60

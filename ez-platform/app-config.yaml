@@ -1,0 +1,112 @@
+app:
+  title: EZ Developer Portal
+  baseUrl: http://localhost:3000
+
+organization:
+  name: "Your Org"
+
+backend:
+  baseUrl: http://localhost:7007
+  listen:
+    port: 7007
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+  cors:
+    origin: http://localhost:3000
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
+  database:
+    client: better-sqlite3
+    connection: ':memory:'
+  cache:
+    store: memory
+
+integrations:
+  github:
+    - host: github.com
+      apps:
+        - $include: github-app-credentials.yaml
+
+proxy:
+  '/grafana/api':
+    target: ${GRAFANA_URL}
+    headers:
+      Authorization: "Bearer ${GRAFANA_TOKEN}"
+
+# ── Techdocs ──────────────────────────────────────────────────────────────────
+techdocs:
+  builder: 'local'
+  generator:
+    runIn: 'local'
+  publisher:
+    type: 'local'
+
+# ── Auth ─────────────────────────────────────────────────────────────────────
+auth:
+  environment: development
+  providers:
+    github:
+      development:
+        clientId:     ${AUTH_GITHUB_CLIENT_ID}
+        clientSecret: ${AUTH_GITHUB_CLIENT_SECRET}
+
+# ── Scaffolder ────────────────────────────────────────────────────────────────
+scaffolder:
+  defaultAuthor:
+    name:  EZ Platform Bot
+    email: ez-bot@your-org.internal
+
+# ── Catalog ──────────────────────────────────────────────────────────────────
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+
+  rules:
+    - allow: [Component, System, API, Resource, Location, Template, User, Group]
+
+  locations:
+    # EZ Platform templates
+    - type: file
+      target: ../../templates/lite/template.yaml
+      rules:
+        - allow: [Template]
+
+    - type: file
+      target: ../../templates/standard/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Platform system catalog
+    - type: file
+      target: ./catalog-info.yaml
+
+    # Your organization's services (registered via Backstage or catalog-info.yaml)
+    # - type: github-discovery
+    #   target: https://github.com/your-org
+    #   catalogPath: /catalog-info.yaml
+
+# ── Kubernetes plugin ─────────────────────────────────────────────────────────
+kubernetes:
+  serviceLocatorMethod:
+    type: multiTenant
+  clusterLocatorMethods:
+    - type: config
+      clusters:
+        - url:                  ${EKS_DEV_URL}
+          name:                 ez-dev
+          authProvider:         aws
+          skipTLSVerify:        false
+          skipMetricsLookup:    false
+          caData:               ${EKS_DEV_CA_DATA}
+          assumeRole:           ${EKS_BACKSTAGE_ROLE_ARN}
+          externalId:           backstage-dev
+
+        - url:                  ${EKS_PROD_URL}
+          name:                 ez-prod
+          authProvider:         aws
+          skipTLSVerify:        false
+          skipMetricsLookup:    false
+          caData:               ${EKS_PROD_CA_DATA}
+          assumeRole:           ${EKS_BACKSTAGE_ROLE_ARN}
+          externalId:           backstage-prod

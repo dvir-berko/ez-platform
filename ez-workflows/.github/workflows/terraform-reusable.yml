@@ -1,0 +1,225 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# EZ Platform — Reusable Terraform Workflow
+#
+# Supports:
+#   PR  → terraform fmt + validate + plan  (plan output posted as PR comment)
+#   Push → terraform apply (dev auto / prod requires GitHub Environment approval)
+#
+# Security:
+#   - AWS auth via OIDC (no static keys)
+#   - State stored in S3 + DynamoDB lock
+#   - Mandatory tagging enforced via variables
+# ────────────────────────────────────────────────────────────────────────────────
+name: EZ Terraform (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Path to Terraform root module (e.g. ez-infra/envs/dev)"
+        required: true
+        type: string
+      environment:
+        description: "Target environment (dev | prod)"
+        required: true
+        type: string
+      tf-version:
+        description: "Terraform version to use"
+        required: false
+        type: string
+        default: "1.7.0"
+      aws-region:
+        description: "AWS region"
+        required: false
+        type: string
+        default: "us-east-1"
+      iam-role-arn:
+        description: "IAM role ARN to assume via OIDC"
+        required: true
+        type: string
+      state-bucket:
+        description: "S3 bucket name for Terraform state"
+        required: true
+        type: string
+      state-lock-table:
+        description: "DynamoDB table for state locking"
+        required: true
+        type: string
+      state-key:
+        description: "S3 key for this module's state file"
+        required: true
+        type: string
+      apply:
+        description: "Whether to run apply (true) or plan only (false)"
+        required: false
+        type: boolean
+        default: false
+      destroy:
+        description: "Run terraform destroy instead of apply (use with caution)"
+        required: false
+        type: boolean
+        default: false
+
+    outputs:
+      plan-exitcode:
+        description: "Exit code from terraform plan (0=no changes, 2=changes, 1=error)"
+        value: ${{ jobs.terraform.outputs.plan-exitcode }}
+
+    secrets:
+      TF_VARS:
+        description: "Terraform variable values (TF_VAR_xxx format, newline-separated)"
+        required: false
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.apply && 'Apply' || 'Plan' }} — ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents:      read
+      id-token:      write         # OIDC → AWS
+      pull-requests: write         # Post plan as PR comment
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    outputs:
+      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT:         "false"
+      AWS_REGION:       ${{ inputs.aws-region }}
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Authenticate to AWS via OIDC ─────────────────────────────────────
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume:    ${{ inputs.iam-role-arn }}
+          aws-region:        ${{ inputs.aws-region }}
+          role-session-name: ez-terraform-${{ inputs.environment }}
+
+      # ── 3. Set up Terraform ──────────────────────────────────────────────────
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.tf-version }}
+
+      # ── 4. Write TF_VARs from secret ────────────────────────────────────────
+      - name: Write secret terraform vars
+        if: ${{ secrets.TF_VARS != '' }}
+        run: |
+          echo "${{ secrets.TF_VARS }}" >> "$GITHUB_ENV"
+
+      # ── 5. Terraform Init (remote state) ────────────────────────────────────
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ inputs.state-bucket }}" \
+            -backend-config="key=${{ inputs.state-key }}" \
+            -backend-config="region=${{ inputs.aws-region }}" \
+            -backend-config="dynamodb_table=${{ inputs.state-lock-table }}" \
+            -backend-config="encrypt=true"
+
+      # ── 6. Terraform Format check ────────────────────────────────────────────
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      # ── 7. Terraform Validate ────────────────────────────────────────────────
+      - name: Terraform Validate
+        run: terraform validate
+
+      # ── 8. Terraform Plan ────────────────────────────────────────────────────
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          PLAN_FLAGS="-detailed-exitcode -out=tfplan"
+          if [ "${{ inputs.destroy }}" = "true" ]; then
+            PLAN_FLAGS="$PLAN_FLAGS -destroy"
+          fi
+          terraform plan $PLAN_FLAGS 2>&1 | tee /tmp/plan.txt
+          EXITCODE=${PIPESTATUS[0]}
+          echo "exitcode=$EXITCODE" >> "$GITHUB_OUTPUT"
+          set -e
+          # exitcode 0 = no changes, 2 = changes present, 1 = error
+          if [ "$EXITCODE" = "1" ]; then exit 1; fi
+
+      # ── 9. Post plan to PR ───────────────────────────────────────────────────
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('/tmp/plan.txt', 'utf8');
+            const truncated = plan.length > 60000
+              ? plan.slice(0, 60000) + '\n\n... (truncated, see logs for full output)'
+              : plan;
+            const body = `## Terraform Plan — \`${{ inputs.environment }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`hcl
+            ${truncated}
+            \`\`\`
+            </details>
+
+            *Working directory: \`${{ inputs.working-directory }}\`*
+            *Exit code: ${{ steps.plan.outputs.exitcode }}*`;
+
+            // Find existing comment and update, or create new
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.body.includes(`Terraform Plan — \`${{ inputs.environment }}\``)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      # ── 10. Terraform Apply (only when apply=true and plan has changes) ─────
+      - name: Terraform Apply
+        if: ${{ inputs.apply && steps.plan.outputs.exitcode == '2' }}
+        run: terraform apply -auto-approve tfplan
+
+      # ── 11. Publish job summary ──────────────────────────────────────────────
+      - name: Publish Terraform summary
+        if: always()
+        run: |
+          EXITCODE="${{ steps.plan.outputs.exitcode }}"
+          case "$EXITCODE" in
+            0) CHANGE_MSG="No changes — infrastructure is up to date." ;;
+            2) CHANGE_MSG="Changes detected." ;;
+            *) CHANGE_MSG="Error during plan." ;;
+          esac
+
+          echo "## EZ Terraform — ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ----- | ----- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Working Dir | \`${{ inputs.working-directory }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Action | ${{ inputs.apply && 'Apply' || 'Plan' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Plan Exit Code | \`$EXITCODE\` — $CHANGE_MSG |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| State Bucket | \`${{ inputs.state-bucket }}\` |" >> "$GITHUB_STEP_SUMMARY"

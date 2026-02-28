@@ -1,0 +1,42 @@
+---
+# EZ Platform itself registered in its own catalog
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: ez-platform
+  description: "EZ Internal Developer Platform — Golden Path for all services"
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - platform
+    - idp
+spec:
+  owner: group:platform-engineering
+  domain: platform
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ez-portal
+  description: "EZ Developer Portal (Backstage)"
+  annotations:
+    github.com/project-slug: your-org/ez-platform
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type:      website
+  lifecycle:  production
+  owner:     group:platform-engineering
+  system:    ez-platform
+
+---
+# Register the template locations
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: ez-templates
+  description: "EZ Platform service templates"
+spec:
+  targets:
+    - ./templates/lite/template.yaml
+    - ./templates/standard/template.yaml

@@ -1,0 +1,45 @@
+# Composite action: Configure kubectl for an EKS cluster
+# Assumes AWS credentials are already configured (use setup-aws-oidc first).
+name: Setup kubectl for EKS
+description: "Generates kubeconfig for an EKS cluster and optionally verifies connectivity"
+
+inputs:
+  cluster-name:
+    description: "EKS cluster name"
+    required: true
+  aws-region:
+    description: "AWS region of the cluster"
+    required: false
+    default: "us-east-1"
+  verify:
+    description: "Run kubectl cluster-info to verify connectivity"
+    required: false
+    default: "true"
+  kubectl-version:
+    description: "kubectl version to install"
+    required: false
+    default: "v1.29.0"
+
+runs:
+  using: composite
+  steps:
+    - name: Install kubectl
+      shell: bash
+      run: |
+        curl -sLO "https://dl.k8s.io/release/${{ inputs.kubectl-version }}/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/kubectl
+        kubectl version --client
+
+    - name: Get EKS kubeconfig
+      shell: bash
+      run: |
+        aws eks update-kubeconfig \
+          --region "${{ inputs.aws-region }}" \
+          --name   "${{ inputs.cluster-name }}" \
+          --alias  "${{ inputs.cluster-name }}"
+
+    - name: Verify cluster connectivity
+      if: ${{ inputs.verify == 'true' }}
+      shell: bash
+      run: kubectl cluster-info
