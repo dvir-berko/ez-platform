@@ -1,0 +1,34 @@
+# ── Staging environment overrides ──────────────────────────────────────────
+# Image tag is automatically updated by CI via yq patch
+image:
+  tag: "staging-latest"  # updated by CI: yq -i '.image.tag = "staging-XXXXXXXX"'
+
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+  host: "ez-platform.staging.internal"
+
+env:
+  APP_ENV: staging
+
+global:
+  environment: staging

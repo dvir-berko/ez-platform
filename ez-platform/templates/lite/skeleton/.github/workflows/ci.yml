@@ -3,14 +3,19 @@
 #
 # This is a THIN workflow. All logic lives in ez-workflows (the platform engine).
 # Update the `with:` inputs below to configure your service.
+#
+# Branch → Environment mapping:
+#   dev     → auto-deploys to dev
+#   staging → auto-deploys to staging
+#   main    → image built and tagged; promote to prod via promote-prod.yml
 # ────────────────────────────────────────────────────────────────────────────────
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging, dev]
   pull_request:
-    branches: [main]
+    branches: [main, staging, dev]
 
 # Cancel in-progress runs on new push to same branch/PR
 concurrency:
@@ -36,20 +41,37 @@ jobs:
       aws-region:      ${{ values.awsRegion }}
       iam-role-arn:    ${{ values.ciRoleArn }}
       test-command:    make test
+      infra-repo:      ${{ values.githubOrg }}/infra
     secrets: inherit
 
-  # ── Deploy to dev (auto on merge to main) ──────────────────────────────────
+  # ── Deploy to dev (auto on push to dev branch) ──────────────────────────────
   deploy-dev:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     needs: ci
     uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@main
     with:
-      service-name:      ${{ values.name }}
-      image-repository:  ${{ needs.ci.outputs.image-repository }}
-      image-tag:         ${{ needs.ci.outputs.image-tag }}
-      eks-cluster-name:  ${{ values.eksClusterName }}
+      service-name:       ${{ values.name }}
+      image-repository:   ${{ needs.ci.outputs.image-repository }}
+      image-tag:          ${{ needs.ci.outputs.image-tag }}
+      eks-cluster-name:   ${{ values.eksClusterName }}
       eks-cluster-region: ${{ values.awsRegion }}
-      namespace:         ${{ values.namespace }}
-      environment:       dev
-      iam-role-arn:      ${{ values.cdDevRoleArn }}
+      namespace:          ${{ values.namespace }}
+      environment:        dev
+      iam-role-arn:       ${{ values.cdDevRoleArn }}
+    secrets: inherit
+
+  # ── Deploy to staging (auto on push to staging branch) ──────────────────────
+  deploy-staging:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    needs: ci
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@main
+    with:
+      service-name:       ${{ values.name }}
+      image-repository:   ${{ needs.ci.outputs.image-repository }}
+      image-tag:          ${{ needs.ci.outputs.image-tag }}
+      eks-cluster-name:   ${{ values.eksStagingClusterName }}
+      eks-cluster-region: ${{ values.awsRegion }}
+      namespace:          ${{ values.namespace }}
+      environment:        staging
+      iam-role-arn:       ${{ values.cdStagingRoleArn }}
     secrets: inherit

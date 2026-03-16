@@ -1,0 +1,30 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# ${{ values.name }} — Promote to Production
+#
+# Manual workflow to promote a staging image to production.
+# Requires a staging-* image tag (built from the staging branch).
+# Triggers the GitHub Environment "production" approval gate.
+# ────────────────────────────────────────────────────────────────────────────────
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to promote (must start with 'staging-')"
+        required: true
+        type: string
+      reason:
+        description: "Reason for this promotion"
+        required: true
+        type: string
+
+jobs:
+  promote:
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/promote-prod-reusable.yml@main
+    with:
+      service-name: ${{ values.name }}
+      image-tag:    ${{ inputs.image_tag }}
+      reason:       ${{ inputs.reason }}
+      infra-repo:   ${{ values.githubOrg }}/infra
+    secrets: inherit

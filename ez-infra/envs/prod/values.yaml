@@ -1,0 +1,36 @@
+# ── Production environment overrides ───────────────────────────────────────
+# Image tag is updated by the promote-prod workflow via yq patch
+image:
+  tag: "prod-latest"  # updated by promote-prod: yq -i '.image.tag = "staging-XXXXXXXX"'
+
+replicaCount: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+  host: "ez-platform.your-domain.com"
+
+env:
+  APP_ENV: production
+
+global:
+  environment: prod

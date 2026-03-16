@@ -36,10 +36,10 @@ resource "aws_ecr_lifecycle_policy" "this" {
     rules = [
       {
         rulePriority = 1
-        description  = "Keep last ${var.max_image_count} images tagged with short SHAs"
+        description  = "Keep last ${var.max_image_count} images tagged with env prefixes or semver"
         selection = {
           tagStatus     = "tagged"
-          tagPrefixList = ["sha-", "v"]
+          tagPrefixList = ["sha-", "v", "dev-", "staging-", "prod-"]
           countType     = "imageCountMoreThan"
           countNumber   = var.max_image_count
         }

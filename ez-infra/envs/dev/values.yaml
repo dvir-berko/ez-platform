@@ -1,0 +1,31 @@
+# ── Dev environment overrides ───────────────────────────────────────────────
+# Image tag is automatically updated by CI via yq patch
+image:
+  tag: "dev-latest"  # updated by CI: yq -i '.image.tag = "dev-XXXXXXXX"'
+
+replicaCount: 1
+
+autoscaling:
+  enabled: false
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+  host: "ez-platform.dev.internal"
+
+env:
+  APP_ENV: dev
+
+global:
+  environment: dev

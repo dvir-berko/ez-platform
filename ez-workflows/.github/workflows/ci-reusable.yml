@@ -2,18 +2,27 @@
 # EZ Platform — Reusable CI Workflow
 #
 # Contract (inputs/outputs):
-#   Inputs : service name, ECR repo, AWS region, image tag override (optional)
-#   Outputs: image.repository, image.tag, sbom-artifact name
+#   Inputs : service name, ECR repo, AWS region, image tag override (optional),
+#            environment (auto-detected from branch), infra-repo (optional GitOps)
+#   Outputs: image.repository, image.tag, image.uri, sbom-artifact name, env
 #
 # Steps:
-#   1. Checkout + setup runtime
-#   2. Run unit tests
-#   3. Build Docker image
-#   4. Generate SBOM (Syft)
-#   5. Scan image (Grype)
-#   6. Authenticate to AWS via OIDC (no static keys)
-#   7. Push image to ECR
-#   8. Publish summary
+#   1.  Checkout + setup runtime
+#   2.  Compute image tag (env-shortsha format)
+#   3.  Detect runtime and set up toolchain
+#   4.  Install dependencies
+#   5.  Run unit tests
+#   6.  Set up Docker Buildx
+#   7.  Build Docker image (no push yet)
+#   8.  Generate SBOM (Syft)
+#   9.  Scan image (Trivy)
+#   10. Upload Trivy SARIF to GitHub Security
+#   11. Authenticate to AWS via OIDC (no static keys)
+#   12. Login to ECR
+#   13. Push image to ECR
+#   14. GitOps patch (yq) — only if infra-repo input is provided
+#   15. Slack notification — only if SLACK_WEBHOOK_URL secret is set
+#   16. Publish job summary
 # ────────────────────────────────────────────────────────────────────────────────
 name: EZ CI (Reusable)
 
@@ -38,7 +47,7 @@ on:
         required: true
         type: string
       image-tag:
-        description: "Override image tag (defaults to short SHA)"
+        description: "Override image tag (defaults to {env}-{short-sha})"
         required: false
         type: string
         default: ""
@@ -58,14 +67,29 @@ on:
         type: string
         default: "make test"
       scan-severity-threshold:
-        description: "Grype severity threshold (NEGLIGIBLE|LOW|MEDIUM|HIGH|CRITICAL)"
+        description: "Trivy severity threshold (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)"
         required: false
         type: string
-        default: "HIGH"
+        default: "HIGH,CRITICAL"
       iam-role-arn:
         description: "IAM role ARN to assume via OIDC for ECR push"
         required: true
         type: string
+      environment:
+        description: "Deployment environment (auto-detected from branch if not set)"
+        required: false
+        type: string
+        default: ""
+      infra-repo:
+        description: "GitOps infra repo to patch after push (e.g. dvir-berko/infra)"
+        required: false
+        type: string
+        default: ""
+      infra-repo-ref:
+        description: "Branch/ref of the infra repo to clone"
+        required: false
+        type: string
+        default: "main"
 
     outputs:
       image-repository:
@@ -80,12 +104,20 @@ on:
       sbom-artifact:
         description: "Name of the uploaded SBOM artifact"
         value: ${{ jobs.ci.outputs.sbom-artifact }}
+      env:
+        description: "Resolved deployment environment name"
+        value: ${{ jobs.ci.outputs.env }}
 
     secrets:
       # No static secrets needed — OIDC is used for AWS auth.
-      # Add any app-level secret names here if required.
       EXTRA_BUILD_ARGS:
         description: "Optional Docker --build-arg values (newline-separated)"
+        required: false
+      INFRA_REPO_PAT:
+        description: "GitHub PAT with write access to the infra repo (for GitOps patch)"
+        required: false
+      SLACK_WEBHOOK_URL:
+        description: "Slack incoming webhook URL for build notifications"
         required: false
 
 jobs:
@@ -103,6 +135,7 @@ jobs:
       image-tag:        ${{ steps.meta.outputs.tag }}
       image-uri:        ${{ steps.meta.outputs.uri }}
       sbom-artifact:    sbom-${{ inputs.service-name }}-${{ steps.meta.outputs.tag }}
+      env:              ${{ steps.meta.outputs.env }}
 
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────────
@@ -111,20 +144,36 @@ jobs:
         with:
           fetch-depth: 1
 
-      # ── 2. Compute image tag ────────────────────────────────────────────────
+      # ── 2. Compute image tag (env-shortsha format) ──────────────────────────
       - name: Compute image metadata
         id: meta
         run: |
           REGISTRY="${{ inputs.aws-account-id }}.dkr.ecr.${{ inputs.aws-region }}.amazonaws.com"
           REPO="${{ inputs.ecr-repository }}"
+
+          # Resolve environment: explicit input → branch mapping → sanitized branch name
+          ENV="${{ inputs.environment }}"
+          if [ -z "$ENV" ]; then
+            BRANCH="${GITHUB_REF_NAME}"
+            case "$BRANCH" in
+              dev)     ENV="dev" ;;
+              staging) ENV="staging" ;;
+              main)    ENV="prod" ;;
+              *)       ENV="$(echo "$BRANCH" | tr '/' '-' | tr '_' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g' | cut -c1-20)" ;;
+            esac
+          fi
+
           TAG="${{ inputs.image-tag }}"
           if [ -z "$TAG" ]; then
-            TAG="${GITHUB_SHA::8}"
+            SHORT_SHA="${GITHUB_SHA::8}"
+            TAG="${ENV}-${SHORT_SHA}"
           fi
-          echo "registry=$REGISTRY"  >> "$GITHUB_OUTPUT"
-          echo "repository=$REGISTRY/$REPO" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"            >> "$GITHUB_OUTPUT"
-          echo "uri=$REGISTRY/$REPO:$TAG" >> "$GITHUB_OUTPUT"
+
+          echo "registry=$REGISTRY"             >> "$GITHUB_OUTPUT"
+          echo "repository=$REGISTRY/$REPO"     >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"                        >> "$GITHUB_OUTPUT"
+          echo "uri=$REGISTRY/$REPO:$TAG"        >> "$GITHUB_OUTPUT"
+          echo "env=$ENV"                        >> "$GITHUB_OUTPUT"
 
       # ── 3. Detect runtime and set up toolchain ──────────────────────────────
       - name: Set up Python (if pyproject.toml / requirements.txt exists)
@@ -180,6 +229,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             ez.service=${{ inputs.service-name }}
+            ez.environment=${{ steps.meta.outputs.env }}
           cache-from: type=gha
           cache-to:   type=gha,mode=max
           build-args: ${{ secrets.EXTRA_BUILD_ARGS }}
@@ -197,23 +247,26 @@ jobs:
           artifact-name:    sbom-${{ inputs.service-name }}-${{ steps.meta.outputs.tag }}
           upload-artifact:  true
 
-      # ── 9. Scan image (Grype) ───────────────────────────────────────────────
-      - name: Scan image with Grype
-        uses: anchore/scan-action@v3
-        id: grype
+      # ── 9. Scan image (Trivy) ───────────────────────────────────────────────
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        id: trivy
         with:
-          image:             ${{ steps.meta.outputs.uri }}
-          severity-cutoff:   ${{ inputs.scan-severity-threshold }}
-          output-format:     sarif
-          fail-build:        true
+          image-ref:      ${{ steps.meta.outputs.uri }}
+          format:         sarif
+          output:         trivy-results.sarif
+          severity:       ${{ inputs.scan-severity-threshold }}
+          exit-code:      "1"
+          ignore-unfixed: true
 
-      - name: Upload Grype SARIF to GitHub Security
+      # ── 10. Upload Trivy SARIF to GitHub Security ───────────────────────────
+      - name: Upload Trivy SARIF to GitHub Security
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ steps.grype.outputs.sarif }}
+          sarif_file: trivy-results.sarif
 
-      # ── 10. Authenticate to AWS via OIDC ────────────────────────────────────
+      # ── 11. Authenticate to AWS via OIDC ────────────────────────────────────
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -221,15 +274,90 @@ jobs:
           aws-region:        ${{ inputs.aws-region }}
           role-session-name: ez-ci-${{ inputs.service-name }}
 
-      # ── 11. Login to ECR ────────────────────────────────────────────────────
+      # ── 12. Login to ECR ────────────────────────────────────────────────────
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── 12. Push image to ECR ───────────────────────────────────────────────
+      # ── 13. Push image to ECR ───────────────────────────────────────────────
       - name: Push image to ECR
         run: docker push ${{ steps.meta.outputs.uri }}
 
-      # ── 13. Publish job summary ─────────────────────────────────────────────
+      # ── 14. GitOps patch via yq ─────────────────────────────────────────────
+      # Only runs when infra-repo input is provided (e.g. "dvir-berko/infra")
+      - name: Patch infra repo image tag (GitOps)
+        if: ${{ inputs.infra-repo != '' }}
+        env:
+          INFRA_REPO:     ${{ inputs.infra-repo }}
+          INFRA_REF:      ${{ inputs.infra-repo-ref }}
+          NEW_TAG:        ${{ steps.meta.outputs.tag }}
+          ENV:            ${{ steps.meta.outputs.env }}
+          GIT_AUTHOR_NAME:  "ez-platform[bot]"
+          GIT_AUTHOR_EMAIL: "ez-platform[bot]@users.noreply.github.com"
+          GH_PAT:         ${{ secrets.INFRA_REPO_PAT }}
+        run: |
+          # Install yq v4
+          YQ_VERSION="v4.44.1"
+          sudo wget -qO /usr/local/bin/yq \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          sudo chmod +x /usr/local/bin/yq
+
+          # Clone infra repo using PAT
+          git clone \
+            "https://x-access-token:${GH_PAT}@github.com/${INFRA_REPO}.git" \
+            /tmp/infra-repo
+          cd /tmp/infra-repo
+          git checkout "$INFRA_REF"
+
+          # Patch envs/{env}/values.yaml
+          VALUES_FILE="envs/${ENV}/values.yaml"
+          if [ ! -f "$VALUES_FILE" ]; then
+            echo "::error::Values file not found: $VALUES_FILE"
+            exit 1
+          fi
+          yq -i ".image.tag = \"${NEW_TAG}\"" "$VALUES_FILE"
+
+          # Commit and push
+          git config user.name  "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
+          git add "$VALUES_FILE"
+          git commit -m "chore(cd): update ${{ inputs.service-name }} image tag to ${NEW_TAG} [skip ci]"
+          git push origin "$INFRA_REF"
+
+      # ── 15. Slack notification ──────────────────────────────────────────────
+      # Runs always (success or failure) when SLACK_WEBHOOK_URL is set
+      - name: Notify Slack
+        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook:      ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} *${{ inputs.service-name }}* CI ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*Service:*\n${{ inputs.service-name }}" },
+                    { "type": "mrkdwn", "text": "*Environment:*\n${{ steps.meta.outputs.env }}" },
+                    { "type": "mrkdwn", "text": "*Image Tag:*\n`${{ steps.meta.outputs.tag }}`" },
+                    { "type": "mrkdwn", "text": "*Status:*\n${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}" }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Run" },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+
+      # ── 16. Publish job summary ─────────────────────────────────────────────
       - name: Publish CI summary
         if: always()
         run: |
@@ -238,6 +366,7 @@ jobs:
           echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "| ----- | ----- |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Image URI | \`${{ steps.meta.outputs.uri }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | \`${{ steps.meta.outputs.env }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Commit SHA | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Branch | \`${{ github.ref_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| SBOM | sbom-${{ inputs.service-name }}-${{ steps.meta.outputs.tag }} |" >> "$GITHUB_STEP_SUMMARY"

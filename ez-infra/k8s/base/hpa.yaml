@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# EZ Platform — HorizontalPodAutoscaler + PodDisruptionBudget
+#
+# Two resources:
+#   1. HPA: scales 2–10 replicas at 70% average CPU utilisation
+#   2. PDB: ensures at least 1 pod is always available during disruptions
+#
+# Per-environment replica counts and autoscaling toggles are controlled via
+# envs/{env}/values.yaml which ArgoCD merges with the Helm chart.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ez-service
+  labels:
+    app.kubernetes.io/name: ez-service
+    app.kubernetes.io/managed-by: argocd
+    ez.platform/managed: "true"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ez-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# PodDisruptionBudget — guarantee availability during node drains / rollouts
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ez-service
+  labels:
+    app.kubernetes.io/name: ez-service
+    app.kubernetes.io/managed-by: argocd
+    ez.platform/managed: "true"
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ez-service

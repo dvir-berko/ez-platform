@@ -1,0 +1,109 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# EZ Platform — ArgoCD Application Manifests
+#
+# Three Applications (dev / staging / prod) using ArgoCD multi-source (v2.6+):
+#   Source 1: ez-platform repo  — provides the Helm chart (helm/ directory)
+#   Source 2: infra repo (ref)  — provides environment values.yaml overrides
+#
+# The infra repo reference ($infra) allows ArgoCD to merge env-specific values
+# from a separate GitOps repo without duplicating the Helm chart.
+#
+# Prod Application has no automated sync — requires a manual sync or ArgoCD UI
+# approval after promote-prod.yml patches envs/prod/values.yaml.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ez-platform-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    # ── Source 1: Service repo (Helm chart) ──────────────────────────────────
+    - repoURL: https://github.com/dvir-berko/ez-platform
+      targetRevision: dev
+      path: helm
+      helm:
+        valueFiles:
+          - $infra/envs/dev/values.yaml
+    # ── Source 2: Infra repo (environment values override) ───────────────────
+    - repoURL: https://github.com/dvir-berko/infra
+      targetRevision: HEAD
+      ref: infra
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ez-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ez-platform-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    # ── Source 1: Service repo (Helm chart) ──────────────────────────────────
+    - repoURL: https://github.com/dvir-berko/ez-platform
+      targetRevision: staging
+      path: helm
+      helm:
+        valueFiles:
+          - $infra/envs/staging/values.yaml
+    # ── Source 2: Infra repo (environment values override) ───────────────────
+    - repoURL: https://github.com/dvir-berko/infra
+      targetRevision: HEAD
+      ref: infra
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ez-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ez-platform-prod
+  namespace: argocd
+  annotations:
+    # Higher sync-wave — prod syncs after lower-priority apps
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    # ── Source 1: Service repo (Helm chart) ──────────────────────────────────
+    - repoURL: https://github.com/dvir-berko/ez-platform
+      targetRevision: main
+      path: helm
+      helm:
+        valueFiles:
+          - $infra/envs/prod/values.yaml
+    # ── Source 2: Infra repo (environment values override) ───────────────────
+    - repoURL: https://github.com/dvir-berko/infra
+      targetRevision: HEAD
+      ref: infra
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ez-prod
+  syncPolicy:
+    # No automated sync for production — require manual sync after promote-prod
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
