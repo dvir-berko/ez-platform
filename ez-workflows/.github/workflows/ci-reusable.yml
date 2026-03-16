@@ -109,7 +109,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history for accurate diff
+          fetch-depth: 1
 
       # ── 2. Compute image tag ────────────────────────────────────────────────
       - name: Compute image metadata
@@ -227,21 +227,7 @@ jobs:
 
       # ── 12. Push image to ECR ───────────────────────────────────────────────
       - name: Push image to ECR
-        uses: docker/build-push-action@v5
-        with:
-          context:   ${{ inputs.build-context }}
-          file:      ${{ inputs.dockerfile-path }}
-          push:      true
-          tags: |
-            ${{ steps.meta.outputs.uri }}
-            ${{ steps.meta.outputs.repository }}:latest
-          labels: |
-            org.opencontainers.image.source=${{ github.repositoryUrl }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            ez.service=${{ inputs.service-name }}
-          cache-from: type=gha
-          cache-to:   type=gha,mode=max
-          build-args: ${{ secrets.EXTRA_BUILD_ARGS }}
+        run: docker push ${{ steps.meta.outputs.uri }}
 
       # ── 13. Publish job summary ─────────────────────────────────────────────
       - name: Publish CI summary

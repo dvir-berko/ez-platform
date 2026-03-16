@@ -24,6 +24,6 @@ metadata:
       icon:  dashboard
 spec:
   type:      service
-  lifecycle:  production
+  lifecycle:  experimental
   owner:     group:${{ values.team }}
   system:    ez-platform

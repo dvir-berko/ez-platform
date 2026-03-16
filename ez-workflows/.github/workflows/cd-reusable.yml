@@ -217,9 +217,14 @@ jobs:
               --timeout "${{ inputs.rollout-timeout }}"
             echo "status=succeeded" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Deployment '$RELEASE' not found, skipping rollout check"
-            echo "status=succeeded" >> "$GITHUB_OUTPUT"
+            echo "::warning::Deployment '$RELEASE' not found in namespace '${{ inputs.namespace }}', skipping rollout check"
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
           fi
+
+      # ── 9b. Clean up secret values file ───────────────────────────────────
+      - name: Clean up secret values
+        if: always()
+        run: rm -f /tmp/secret-values.yaml
 
       # ── 10. On failure: capture helm history ───────────────────────────────
       - name: Capture Helm history on failure

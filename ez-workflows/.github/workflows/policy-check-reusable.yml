@@ -162,7 +162,11 @@ jobs:
         id: summary
         if: always()
         run: |
-          echo "passed=true" >> "$GITHUB_OUTPUT"
+          PASSED="true"
+          [ "${{ steps.helm-lint.outcome }}" == "failure" ] && PASSED="false"
+          [ "${{ steps.conftest.outcome }}"  == "failure" ] && PASSED="false"
+          [ "${{ steps.gitleaks.outcome }}"  == "failure" ] && PASSED="false"
+          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
 
           echo "## EZ Policy Check Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

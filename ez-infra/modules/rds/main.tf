@@ -39,13 +39,6 @@ resource "aws_security_group" "db" {
     description     = "Allow ${var.service_name} pods to reach DB"
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound"
-  }
 
   tags = merge(var.tags, {
     "ez.platform/service" = var.service_name

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=18 <20"
+    "node": ">=20"
   },
   "scripts": {
     "dev":         "concurrently \"yarn workspace @ez/backend start\" \"yarn workspace @ez/app start\"",

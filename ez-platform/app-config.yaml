@@ -17,7 +17,7 @@ backend:
     credentials: true
   database:
     client: better-sqlite3
-    connection: ':memory:'
+    connection: './data/backstage.db'
   cache:
     store: memory
 
