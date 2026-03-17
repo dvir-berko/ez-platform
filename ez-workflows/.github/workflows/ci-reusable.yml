@@ -322,6 +322,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
+        continue-on-error: true
 
       # ── 12. Authenticate to AWS via OIDC ────────────────────────────────────
       - name: Configure AWS credentials (OIDC)
