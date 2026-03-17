@@ -71,6 +71,11 @@ on:
         required: false
         type: string
         default: "HIGH,CRITICAL"
+      allow-production-sourcemaps:
+        description: "Allow JavaScript source maps to ship in the built image"
+        required: false
+        type: boolean
+        default: false
       iam-role-arn:
         description: "IAM role ARN to assume via OIDC for ECR push"
         required: true
@@ -259,33 +264,88 @@ jobs:
           exit-code:      "1"
           ignore-unfixed: true
 
-      # ── 10. Upload Trivy SARIF to GitHub Security ───────────────────────────
+      # ── 10. Inspect built image filesystem ──────────────────────────────────
+      - name: Inspect built image filesystem
+        run: |
+          set -euo pipefail
+
+          CID="$(docker create "${{ steps.meta.outputs.uri }}" true)"
+          trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
+
+          docker export "$CID" | tar -tf - > /tmp/image-files.txt
+
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          allow_sourcemaps = "${{ inputs.allow-production-sourcemaps }}".lower() == "true"
+          files = pathlib.Path("/tmp/image-files.txt").read_text().splitlines()
+
+          checks = [
+              ("Committed env files", re.compile(r"(^|/)\.env([._-][^/]+)?$"), {
+                  ".env.example",
+                  ".env.template",
+                  ".env.sample",
+              }),
+              ("Backup artifacts", re.compile(r"(^|/).+\.(bak|old|backup|dump|sql|tar|tgz|gz|zip)$"), set()),
+              ("Open backup directories", re.compile(r"(^|/)(backup|backups|bak|old|dump)(/|$)"), set()),
+          ]
+
+          if not allow_sourcemaps:
+              checks.append(("Production source maps", re.compile(r"(^|/).+\.map$"), set()))
+
+          failures = []
+          for label, pattern, allowlist in checks:
+              matches = []
+              for item in files:
+                  normalized = item.lstrip("./")
+                  basename = normalized.rsplit("/", 1)[-1]
+                  if basename in allowlist:
+                      continue
+                  if pattern.search(normalized):
+                      matches.append(normalized)
+              if matches:
+                  failures.append((label, matches[:20]))
+
+          if failures:
+              for label, matches in failures:
+                  print(f"{label} detected in built image:")
+                  for match in matches:
+                      print(f"  - {match}")
+              sys.exit(1)
+          PY
+
+      # ── 11. Upload Trivy SARIF to GitHub Security ───────────────────────────
       - name: Upload Trivy SARIF to GitHub Security
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
 
-      # ── 11. Authenticate to AWS via OIDC ────────────────────────────────────
+      # ── 12. Authenticate to AWS via OIDC ────────────────────────────────────
       - name: Configure AWS credentials (OIDC)
+        if: ${{ github.event_name != 'pull_request' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume:    ${{ inputs.iam-role-arn }}
           aws-region:        ${{ inputs.aws-region }}
           role-session-name: ez-ci-${{ inputs.service-name }}
 
-      # ── 12. Login to ECR ────────────────────────────────────────────────────
+      # ── 13. Login to ECR ────────────────────────────────────────────────────
       - name: Login to Amazon ECR
+        if: ${{ github.event_name != 'pull_request' }}
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── 13. Push image to ECR ───────────────────────────────────────────────
+      # ── 14. Push image to ECR ───────────────────────────────────────────────
       - name: Push image to ECR
+        if: ${{ github.event_name != 'pull_request' }}
         run: docker push ${{ steps.meta.outputs.uri }}
 
-      # ── 14. GitOps patch via yq ─────────────────────────────────────────────
+      # ── 15. GitOps patch via yq ─────────────────────────────────────────────
       # Only runs when infra-repo input is provided (e.g. "dvir-berko/infra")
       - name: Patch infra repo image tag (GitOps)
-        if: ${{ inputs.infra-repo != '' }}
+        if: ${{ github.event_name != 'pull_request' && inputs.infra-repo != '' }}
         env:
           INFRA_REPO:     ${{ inputs.infra-repo }}
           INFRA_REF:      ${{ inputs.infra-repo-ref }}
@@ -323,7 +383,7 @@ jobs:
           git commit -m "chore(cd): update ${{ inputs.service-name }} image tag to ${NEW_TAG} [skip ci]"
           git push origin "$INFRA_REF"
 
-      # ── 15. Slack notification ──────────────────────────────────────────────
+      # ── 16. Slack notification ──────────────────────────────────────────────
       # Runs always (success or failure) when SLACK_WEBHOOK_URL is set
       - name: Notify Slack
         if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
@@ -357,7 +417,7 @@ jobs:
               ]
             }
 
-      # ── 16. Publish job summary ─────────────────────────────────────────────
+      # ── 17. Publish job summary ─────────────────────────────────────────────
       - name: Publish CI summary
         if: always()
         run: |
@@ -371,3 +431,4 @@ jobs:
           echo "| Branch | \`${{ github.ref_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| SBOM | sbom-${{ inputs.service-name }}-${{ steps.meta.outputs.tag }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Scan Threshold | ${{ inputs.scan-severity-threshold }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image Push | ${{ github.event_name == 'pull_request' && 'Skipped on PRs' || 'Pushed to ECR' }} |" >> "$GITHUB_STEP_SUMMARY"

@@ -43,6 +43,11 @@ on:
         required: false
         type: boolean
         default: true
+      allow-tracked-sourcemaps:
+        description: "Allow committed source maps in the repository"
+        required: false
+        type: boolean
+        default: false
 
     outputs:
       policy-passed:
@@ -67,7 +72,56 @@ jobs:
         with:
           fetch-depth: 0  # needed for gitleaks history scan
 
-      # ── 2. Helm lint ─────────────────────────────────────────────────────────
+      # ── 2. Guard against exposed env / backup files ────────────────────────
+      - name: Check forbidden tracked files
+        id: forbidden-files
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import subprocess
+          import sys
+
+          allow_sourcemaps = "${{ inputs.allow-tracked-sourcemaps }}".lower() == "true"
+          tracked = subprocess.check_output(["git", "ls-files", "-z"], text=False).decode("utf-8", "replace").split("\0")
+          tracked = [item for item in tracked if item]
+
+          checks = [
+              ("Tracked env files", re.compile(r"(^|/)\.env([._-][^/]+)?$"), {
+                  ".env.example",
+                  ".env.template",
+                  ".env.sample",
+              }),
+              ("Backup and dump files", re.compile(r"(^|/).+\.(bak|old|backup|dump|sql|tar|tgz|gz|zip)$"), set()),
+              ("Backup directories", re.compile(r"(^|/)(backup|backups|bak|old|dump)(/|$)"), set()),
+          ]
+
+          if not allow_sourcemaps:
+              checks.append(("Tracked source maps", re.compile(r"(^|/).+\.map$"), set()))
+
+          failures = []
+          for label, pattern, allowlist in checks:
+              matches = []
+              for item in tracked:
+                  basename = pathlib.Path(item).name
+                  if basename in allowlist:
+                      continue
+                  if pattern.search(item):
+                      matches.append(item)
+              if matches:
+                  failures.append((label, matches[:20]))
+
+          if failures:
+              for label, matches in failures:
+                  print(f"{label} detected:")
+                  for match in matches:
+                      print(f"  - {match}")
+              sys.exit(1)
+          PY
+
+      # ── 3. Helm lint ─────────────────────────────────────────────────────────
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
@@ -85,7 +139,7 @@ jobs:
             echo "::notice::No Helm chart found at ${{ inputs.helm-chart-path }}, skipping"
           fi
 
-      # ── 3. OPA / conftest policy check ──────────────────────────────────────
+      # ── 4. OPA / conftest policy check ──────────────────────────────────────
       - name: Install conftest
         run: |
           VERSION="0.48.0"
@@ -113,7 +167,7 @@ jobs:
               --all-namespaces
           fi
 
-      # ── 4. Dockerfile lint (Hadolint) ────────────────────────────────────────
+      # ── 5. Dockerfile lint (Hadolint) ───────────────────────────────────────
       - name: Hadolint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         if: ${{ hashFiles(inputs.dockerfile-path) != '' }}
@@ -130,7 +184,7 @@ jobs:
           sarif_file: hadolint.sarif
         continue-on-error: true
 
-      # ── 5. Secret scanning (Gitleaks) ────────────────────────────────────────
+      # ── 6. Secret scanning (Gitleaks) ───────────────────────────────────────
       - name: Gitleaks secret scan
         uses: gitleaks/gitleaks-action@v2
         id: gitleaks
@@ -139,7 +193,53 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: "true"
         continue-on-error: ${{ !inputs.fail-on-secret-detection }}
 
-      # ── 6. Required label / annotation checks ────────────────────────────────
+      # ── 7. SAST (Semgrep) ───────────────────────────────────────────────────
+      - name: Set up Python for Semgrep
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep
+        run: python3 -m pip install --disable-pip-version-check semgrep
+
+      - name: Run Semgrep
+        id: semgrep
+        run: |
+          semgrep scan \
+            --config auto \
+            --error \
+            --sarif \
+            --output semgrep.sarif
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
+
+      # ── 8. Filesystem / IaC scan (Trivy) ────────────────────────────────────
+      - name: Trivy filesystem scan
+        id: trivy-fs
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: "1"
+
+      - name: Upload Trivy filesystem SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+        continue-on-error: true
+
+      # ── 9. Required label / annotation checks ───────────────────────────────
       - name: Check required Helm annotations
         if: ${{ hashFiles(inputs.helm-chart-path + '/Chart.yaml') != '' }}
         run: |
@@ -157,22 +257,28 @@ jobs:
             exit 1
           fi
 
-      # ── 7. Summary ───────────────────────────────────────────────────────────
+      # ── 10. Summary ──────────────────────────────────────────────────────────
       - name: Publish policy summary
         id: summary
         if: always()
         run: |
           PASSED="true"
+          [ "${{ steps.forbidden-files.outcome }}" == "failure" ] && PASSED="false"
           [ "${{ steps.helm-lint.outcome }}" == "failure" ] && PASSED="false"
           [ "${{ steps.conftest.outcome }}"  == "failure" ] && PASSED="false"
           [ "${{ steps.gitleaks.outcome }}"  == "failure" ] && PASSED="false"
+          [ "${{ steps.semgrep.outcome }}"   == "failure" ] && PASSED="false"
+          [ "${{ steps.trivy-fs.outcome }}"  == "failure" ] && PASSED="false"
           echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
 
           echo "## EZ Policy Check Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Check | Status |" >> "$GITHUB_STEP_SUMMARY"
           echo "| ----- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Forbidden Files | ${{ steps.forbidden-files.outcome == 'success' && '✅ Clean' || '❌ Found tracked sensitive files' }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Helm Lint | ${{ steps.helm-lint.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| OPA Policies | ${{ steps.conftest.outcome == 'success' && '✅ Passed' || steps.conftest.outcome == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Dockerfile Lint | ${{ steps.helm-lint.outcome == 'success' && '✅ Passed' || '⚠️ Warnings' }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Secret Scan | ${{ steps.gitleaks.outcome == 'success' && '✅ Clean' || '❌ Secrets Detected' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Semgrep | ${{ steps.semgrep.outcome == 'success' && '✅ Passed' || '❌ Findings' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trivy FS/IaC | ${{ steps.trivy-fs.outcome == 'success' && '✅ Passed' || '❌ Findings' }} |" >> "$GITHUB_STEP_SUMMARY"

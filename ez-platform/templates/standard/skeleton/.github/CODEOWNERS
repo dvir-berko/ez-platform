@@ -1,0 +1,6 @@
+* @${{ values.owner }}
+
+.github/workflows/* @${{ values.owner }} @${{ values.githubOrg }}/platform-engineering
+helm/** @${{ values.owner }} @${{ values.githubOrg }}/platform-engineering
+Dockerfile @${{ values.owner }} @${{ values.githubOrg }}/platform-engineering
+terraform/** @${{ values.owner }} @${{ values.githubOrg }}/platform-engineering

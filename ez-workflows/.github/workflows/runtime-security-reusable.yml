@@ -1,0 +1,126 @@
+name: EZ Runtime Security Monitor (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      base-url:
+        description: "Base URL to probe, for example https://api.example.com"
+        required: true
+        type: string
+      expected-status:
+        description: "Expected HTTP status from the main URL"
+        required: false
+        type: string
+        default: "200"
+      required-headers:
+        description: "Newline-delimited list of required response headers"
+        required: false
+        type: string
+        default: |
+          content-security-policy
+          x-content-type-options
+          referrer-policy
+      sensitive-paths:
+        description: "Newline-delimited list of sensitive paths that must not return 200"
+        required: false
+        type: string
+        default: |
+          /.env
+          /.env.production
+          /.git/config
+          /backup.zip
+          /site.tar
+          /app.js.map
+      slack-webhook-enabled:
+        description: "Whether Slack notification should run when the secret exists"
+        required: false
+        type: boolean
+        default: true
+
+    secrets:
+      SLACK_WEBHOOK_URL:
+        description: "Slack incoming webhook URL for runtime alerts"
+        required: false
+
+jobs:
+  probe:
+    name: Runtime security probe
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Validate required headers on root URL
+        id: headers
+        run: |
+          set -euo pipefail
+
+          BASE_URL="${{ inputs.base-url }}"
+          EXPECTED_STATUS="${{ inputs.expected-status }}"
+
+          curl -fsS -D /tmp/root-headers.txt -o /tmp/root-body.txt "$BASE_URL" >/dev/null
+          STATUS="$(awk 'toupper($1) ~ /^HTTP\// {code=$2} END {print code}' /tmp/root-headers.txt)"
+          if [ "$STATUS" != "$EXPECTED_STATUS" ]; then
+            echo "::error::Expected HTTP status $EXPECTED_STATUS from $BASE_URL, got $STATUS"
+            exit 1
+          fi
+
+          while IFS= read -r header || [ -n "$header" ]; do
+            [ -z "$header" ] && continue
+            if ! grep -iq "^${header}:" /tmp/root-headers.txt; then
+              echo "::error::Missing required header: $header"
+              exit 1
+            fi
+          done <<'EOF'
+          ${{ inputs.required-headers }}
+          EOF
+
+      - name: Probe sensitive paths
+        id: exposed-files
+        run: |
+          set -euo pipefail
+
+          BASE_URL="${{ inputs.base-url }}"
+          while IFS= read -r path || [ -n "$path" ]; do
+            [ -z "$path" ] && continue
+            STATUS="$(curl -ksS -o /dev/null -w '%{http_code}' "${BASE_URL%/}${path}")"
+            if [ "$STATUS" = "200" ]; then
+              echo "::error::Sensitive path is exposed: $path"
+              exit 1
+            fi
+          done <<'EOF'
+          ${{ inputs.sensitive-paths }}
+          EOF
+
+      - name: Notify Slack
+        if: ${{ always() && inputs.slack-webhook-enabled && secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} Runtime security probe for ${{ inputs.base-url }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*URL:*\n${{ inputs.base-url }}" },
+                    { "type": "mrkdwn", "text": "*Status:*\n${{ job.status == 'success' && 'Healthy' || 'Failed' }}" },
+                    { "type": "mrkdwn", "text": "*Workflow:*\n${{ github.workflow }}" },
+                    { "type": "mrkdwn", "text": "*Run:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open run>" }
+                  ]
+                }
+              ]
+            }
+
+      - name: Publish runtime summary
+        if: always()
+        run: |
+          echo "## EZ Runtime Security Monitor" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ----- | ----- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| URL | \`${{ inputs.base-url }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Expected Status | \`${{ inputs.expected-status }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Result | \`${{ job.status }}\` |" >> "$GITHUB_STEP_SUMMARY"

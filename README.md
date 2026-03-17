@@ -96,12 +96,15 @@ Developer clicks "Create Service" in EZ Portal
 | Secret management | AWS Secrets Manager → External Secrets Operator |
 | K8s policies | OPA/conftest on every PR, Kyverno in cluster |
 | Drift detection | Scheduled `helm diff` (Phase 2) |
+| Merge protection | Required PR checks + branch protection rules |
+| Runtime exposure checks | Scheduled header and exposed-file probes after release |
 
 ## Getting Started
 
 - [Setting up your first service](./docs/getting-started.md)
 - [Golden Path guide](./docs/golden-path.md)
 - [Architecture deep dive](./docs/architecture.md)
+- [CI/CD security gates](./docs/ci-cd-security-gates.md)
 - [Running EZ locally](./ez-platform/README.md)
 
 ## Design Decisions

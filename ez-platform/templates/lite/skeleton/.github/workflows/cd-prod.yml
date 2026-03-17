@@ -29,3 +29,11 @@ jobs:
       iam-role-arn:       ${{ values.cdProdRoleArn }}
       helm-timeout:       "10m"
     secrets: inherit
+
+  runtime-security:
+    if: ${{ vars.PROD_BASE_URL != '' }}
+    needs: deploy-prod
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/runtime-security-reusable.yml@main
+    with:
+      base-url: ${{ vars.PROD_BASE_URL }}
+    secrets: inherit
