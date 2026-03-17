@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+!.env.template
+!.env.sample
+*.bak
+*.old
+*.backup
+*.dump
+*.sql
+*.tar
+*.tgz
+*.gz
+*.zip
+*.map

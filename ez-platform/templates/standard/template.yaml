@@ -42,7 +42,7 @@ spec:
           type: string
 
     - title: AWS & Kubernetes Config
-      required: [awsAccountId, awsRegion, eksClusterName, eksClusterNameProd, namespace, ecrRepository]
+      required: [awsAccountId, awsRegion, eksClusterName, eksStagingClusterName, eksClusterNameProd, namespace, ecrRepository]
       properties:
         awsAccountId:
           title: AWS Account ID
@@ -57,6 +57,10 @@ spec:
           title: EKS Cluster (Dev/Staging)
           type: string
           default: ez-dev
+        eksStagingClusterName:
+          title: EKS Cluster (Staging)
+          type: string
+          default: ez-staging
         eksClusterNameProd:
           title: EKS Cluster (Prod)
           type: string
@@ -91,7 +95,7 @@ spec:
           default: true
 
     - title: IAM Roles (OIDC)
-      required: [ciRoleArn, cdDevRoleArn, cdProdRoleArn, tfDevRoleArn, tfProdRoleArn]
+      required: [ciRoleArn, cdDevRoleArn, cdStagingRoleArn, cdProdRoleArn, tfDevRoleArn, tfProdRoleArn]
       properties:
         ciRoleArn:
           title: CI IAM Role ARN
@@ -99,6 +103,10 @@ spec:
           pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
         cdDevRoleArn:
           title: CD Dev IAM Role ARN
+          type: string
+          pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
+        cdStagingRoleArn:
+          title: CD Staging IAM Role ARN
           type: string
           pattern: "^arn:aws:iam::[0-9]{12}:role/.+"
         cdProdRoleArn:
@@ -144,6 +152,7 @@ spec:
           awsAccountId:       ${{ parameters.awsAccountId }}
           awsRegion:          ${{ parameters.awsRegion }}
           eksClusterName:     ${{ parameters.eksClusterName }}
+          eksStagingClusterName: ${{ parameters.eksStagingClusterName }}
           eksClusterNameProd: ${{ parameters.eksClusterNameProd }}
           namespace:          ${{ parameters.namespace }}
           ecrRepository:      ${{ parameters.ecrRepository }}
@@ -153,6 +162,7 @@ spec:
           multiAz:            ${{ parameters.multiAz }}
           ciRoleArn:          ${{ parameters.ciRoleArn }}
           cdDevRoleArn:       ${{ parameters.cdDevRoleArn }}
+          cdStagingRoleArn:   ${{ parameters.cdStagingRoleArn }}
           cdProdRoleArn:      ${{ parameters.cdProdRoleArn }}
           tfDevRoleArn:       ${{ parameters.tfDevRoleArn }}
           tfProdRoleArn:      ${{ parameters.tfProdRoleArn }}
@@ -187,3 +197,12 @@ spec:
       - title: EZ Portal
         url:   ${{ steps['register-catalog'].output.entityRef }}
         icon:  catalog
+    text:
+      - title: Next Steps
+        content: |
+          ## Your standard service is ready
+
+          1. **Open a PR first** — required CI and policy checks must pass before merge
+          2. **Dev deploys** trigger from the `dev` branch and **staging deploys** from `staging`
+          3. **Prod deploy** uses a version tag plus GitHub Environment approval
+          4. **Runtime monitoring** starts once you set the `PROD_BASE_URL` repository variable

@@ -1,0 +1,14 @@
+name: Runtime Security Monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  runtime-security:
+    if: ${{ vars.PROD_BASE_URL != '' }}
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/runtime-security-reusable.yml@main
+    with:
+      base-url: ${{ vars.PROD_BASE_URL }}
+    secrets: inherit
