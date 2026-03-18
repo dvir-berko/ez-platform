@@ -1,0 +1,100 @@
+name: Trivy Security Scan
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: "0 2 * * *" # daily at 02:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: trivy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy-pr-and-push:
+    name: Trivy PR/Push Scan
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy scan (blocking)
+        id: trivy-scan
+        continue-on-error: true
+        run: |
+          mkdir -p "${RUNNER_TEMP}/trivy-cache"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+            -w /workspace \
+            get.trivy.dev/image/trivy:0.68.1 \
+            fs . \
+              --timeout 10m0s \
+              --scanners vuln,secret,misconfig \
+              --vuln-type os,library \
+              --ignore-unfixed \
+              --severity HIGH,CRITICAL \
+              --format sarif \
+              --output trivy-results.sarif
+
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs
+        continue-on-error: true
+
+      - name: Fail on Trivy findings
+        if: steps.trivy-scan.outcome == 'failure'
+        run: exit 1
+
+  trivy-nightly:
+    name: Trivy Nightly Full Scan
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy scan (non-blocking)
+        continue-on-error: true
+        run: |
+          mkdir -p "${RUNNER_TEMP}/trivy-cache"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+            -w /workspace \
+            get.trivy.dev/image/trivy:0.68.1 \
+            fs . \
+              --timeout 10m0s \
+              --scanners vuln,secret,misconfig \
+              --vuln-type os,library \
+              --ignore-unfixed \
+              --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
+              --format sarif \
+              --output trivy-results-nightly.sarif
+
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-results-nightly.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results-nightly.sarif
+          category: trivy-fs-nightly
+        continue-on-error: true

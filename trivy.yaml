@@ -1,0 +1,9 @@
+timeout: 10m0s
+ignore-unfixed: true
+scanners:
+  - vuln
+  - secret
+  - misconfig
+vuln-type:
+  - os
+  - library
