@@ -32,24 +32,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Trivy
-        uses: aquasecurity/setup-trivy@v0.2.2
-        with:
-          version: v0.68.1
-          cache: true
-
       - name: Run Trivy scan (blocking)
         id: trivy-scan
         continue-on-error: true
         run: |
-          trivy fs . \
-            --timeout 10m0s \
-            --scanners vuln,secret,misconfig \
-            --vuln-type os,library \
-            --ignore-unfixed \
-            --severity HIGH,CRITICAL \
-            --format sarif \
-            --output trivy-results.sarif
+          mkdir -p "${RUNNER_TEMP}/trivy-cache"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+            -w /workspace \
+            get.trivy.dev/image/trivy:0.68.1 \
+            fs . \
+              --timeout 10m0s \
+              --scanners vuln,secret,misconfig \
+              --vuln-type os,library \
+              --ignore-unfixed \
+              --severity HIGH,CRITICAL \
+              --format sarif \
+              --output trivy-results.sarif
 
       - name: Upload Trivy SARIF
         if: always() && hashFiles('trivy-results.sarif') != ''
@@ -73,23 +73,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Trivy
-        uses: aquasecurity/setup-trivy@v0.2.2
-        with:
-          version: v0.68.1
-          cache: true
-
       - name: Run Trivy scan (non-blocking)
         continue-on-error: true
         run: |
-          trivy fs . \
-            --timeout 10m0s \
-            --scanners vuln,secret,misconfig \
-            --vuln-type os,library \
-            --ignore-unfixed \
-            --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
-            --format sarif \
-            --output trivy-results-nightly.sarif
+          mkdir -p "${RUNNER_TEMP}/trivy-cache"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+            -w /workspace \
+            get.trivy.dev/image/trivy:0.68.1 \
+            fs . \
+              --timeout 10m0s \
+              --scanners vuln,secret,misconfig \
+              --vuln-type os,library \
+              --ignore-unfixed \
+              --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
+              --format sarif \
+              --output trivy-results-nightly.sarif
 
       - name: Upload Trivy SARIF
         if: always() && hashFiles('trivy-results-nightly.sarif') != ''
