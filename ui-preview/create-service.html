@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EZ Platform — Create Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #0a0c0f;
+    --surface:   #111418;
+    --surface2:  #181c22;
+    --border:    rgba(255,255,255,0.07);
+    --border-hi: rgba(255,255,255,0.14);
+    --text:      #e8ecf0;
+    --muted:     #5a6272;
+    --accent:    #00e5a0;
+    --accent2:   #3d7eff;
+    --accent3:   #ff6b4a;
+    --warn:      #f5c518;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* NAV */
+  .topnav {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 28px; display: flex; align-items: center;
+    height: 54px; gap: 16px;
+  }
+  .logo-mark { width:28px;height:28px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:14px;color:#000; }
+  .logo-text { font-family:var(--font-head);font-weight:700;font-size:17px;letter-spacing:-0.5px; }
+  .logo-text span { color:var(--accent); }
+  .breadcrumb { display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted); }
+  .breadcrumb .sep { opacity:0.4; }
+  .breadcrumb .current { color:var(--text);font-weight:500; }
+
+  /* WIZARD LAYOUT */
+  .wizard-wrap {
+    max-width: 960px;
+    margin: 40px auto;
+    padding: 0 24px;
+  }
+
+  .wizard-title { font-family: var(--font-head); font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+  .wizard-sub { font-size: 14px; color: var(--muted); margin-bottom: 32px; }
+
+  /* STEP PILLS */
+  .steps {
+    display: flex;
+    align-items: center;
+    margin-bottom: 32px;
+    gap: 0;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  .step.done  .step-num { background: rgba(0,229,160,0.12); border-color: var(--accent); color: var(--accent); }
+  .step.active .step-num { background: var(--accent); border-color: var(--accent); color: #000; }
+
+  .step-label { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .step.active .step-label { color: var(--text); }
+  .step.done   .step-label { color: var(--accent); }
+
+  .step-connector {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    min-width: 20px;
+    max-width: 60px;
+    margin: 0 8px;
+  }
+
+  .step-connector.done { background: var(--accent); opacity: 0.4; }
+
+  /* TEMPLATE SELECTOR */
+  .template-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 28px; }
+
+  .template-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .template-card:hover { border-color: var(--border-hi); transform: translateY(-2px); }
+  .template-card.selected { border-color: var(--accent); background: rgba(0,229,160,0.04); }
+
+  .template-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 36px 36px 0;
+    border-color: transparent var(--accent) transparent transparent;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .template-card.selected::after { opacity: 1; }
+
+  .check-mark {
+    position: absolute;
+    top: 5px; right: 5px;
+    font-size: 11px; color: #000; font-weight: 800;
+    opacity: 0;
+  }
+
+  .template-card.selected .check-mark { opacity: 1; }
+
+  .tc-icon { font-size: 32px; margin-bottom: 12px; }
+  .tc-title { font-family: var(--font-head); font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .tc-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+
+  .tc-includes { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tc-tag {
+    font-size: 10.5px; font-family: var(--font-mono);
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 20px; color: var(--muted);
+  }
+
+  /* FORM */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .form-section-title {
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.full { grid-template-columns: 1fr; }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+
+  .form-label {
+    font-size: 12px; font-weight: 600; color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .form-label .req { color: var(--accent); margin-left: 2px; }
+
+  .form-hint { font-size: 11.5px; color: var(--muted); margin-top: -2px; }
+
+  .form-input {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13.5px;
+    font-family: var(--font-body);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--muted); }
+
+  .form-input.mono { font-family: var(--font-mono); }
+
+  select.form-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235a6272' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+  }
+
+  .preview-box {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .preview-box .hi { color: var(--accent); }
+  .preview-box .hi2 { color: var(--accent2); }
+  .preview-box .hi3 { color: var(--text); }
+
+  /* FOOTER ACTIONS */
+  .wizard-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0 40px;
+  }
+
+  .btn { display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:8px;font-size:13.5px;font-weight:600;border:none;cursor:pointer;transition:all 0.15s; }
+  .btn-primary { background:var(--accent);color:#000; }
+  .btn-primary:hover { background:#00ffa8;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,229,160,0.3); }
+  .btn-ghost { background:var(--surface);color:var(--text);border:1px solid var(--border); }
+  .btn-ghost:hover { border-color:var(--border-hi); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="topnav">
+  <div class="logo-mark">EZ</div>
+  <div class="logo-text">Platform<span>.</span></div>
+  <div style="width:1px;height:20px;background:var(--border);margin:0 6px;"></div>
+  <div class="breadcrumb">
+    <span style="color:var(--muted);">Create</span>
+    <span class="sep">›</span>
+    <span class="current">New Service</span>
+  </div>
+</nav>
+
+<!-- WIZARD -->
+<div class="wizard-wrap">
+  <div class="wizard-title">Create a New Service</div>
+  <div class="wizard-sub">Scaffold a production-ready service in under 5 minutes · CI/CD wired automatically</div>
+
+  <!-- STEPS -->
+  <div class="steps">
+    <div class="step done">
+      <div class="step-num">✓</div>
+      <div class="step-label">Choose Template</div>
+    </div>
+    <div class="step-connector done"></div>
+    <div class="step active">
+      <div class="step-num">2</div>
+      <div class="step-label">Service Details</div>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-label">AWS Config</div>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-label">Review & Create</div>
+    </div>
+  </div>
+
+  <!-- SELECTED TEMPLATE REMINDER -->
+  <div style="background:rgba(0,229,160,0.06);border:1px solid rgba(0,229,160,0.2);border-radius:10px;padding:12px 16px;margin-bottom:24px;display:flex;align-items:center;gap:12px;">
+    <div style="font-size:22px;">🚀</div>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:600;color:var(--accent);">Lite Template Selected</div>
+      <div style="font-size:12px;color:var(--muted);">Stateless API or worker · Includes App + Dockerfile + Helm + CI/CD</div>
+    </div>
+    <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;">Change</button>
+  </div>
+
+  <!-- FORM -->
+  <div class="form-card">
+    <div class="form-section-title">📋 Service Details</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Service Name <span class="req">*</span></label>
+        <div class="form-hint">Will be used as the GitHub repo name prefix</div>
+        <input class="form-input mono" type="text" placeholder="my-cool-service" value="data-processor"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Team Owner <span class="req">*</span></label>
+        <div class="form-hint">GitHub team responsible for this service</div>
+        <select class="form-input">
+          <option>platform-team</option>
+          <option>data-team</option>
+          <option>fintech-team</option>
+          <option>core-team</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input class="form-input" type="text" placeholder="What does this service do?" value="Processes incoming data streams from Kafka"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lifecycle</label>
+        <select class="form-input">
+          <option>experimental</option>
+          <option>development</option>
+          <option selected>production</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Port <span class="req">*</span></label>
+        <input class="form-input mono" type="text" value="8080" placeholder="8080"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tags</label>
+        <input class="form-input" type="text" placeholder="python, kafka, worker" value="python, kafka"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <div class="form-section-title">☸️ Kubernetes Config</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">EKS Namespace <span class="req">*</span></label>
+        <input class="form-input mono" type="text" placeholder="my-team-prod" value="data-team"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dev Replicas</label>
+        <select class="form-input">
+          <option>1</option>
+          <option selected>2</option>
+          <option>3</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prod Min Replicas (HPA)</label>
+        <select class="form-input">
+          <option>1</option>
+          <option>2</option>
+          <option selected>3</option>
+          <option>4</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prod Max Replicas (HPA)</label>
+        <select class="form-input">
+          <option>4</option>
+          <option selected>8</option>
+          <option>12</option>
+          <option>16</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <div class="form-section-title">🔑 IAM / GitHub</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">GitHub OIDC IAM Role ARN <span class="req">*</span></label>
+        <div class="form-hint">Role that CI uses to push to ECR</div>
+        <input class="form-input mono" type="text" placeholder="arn:aws:iam::123456789:role/..." value="arn:aws:iam::123456789:role/ez-github-ci-data-team"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CD IAM Role ARN <span class="req">*</span></label>
+        <div class="form-hint">Role that CD uses to deploy via Helm</div>
+        <input class="form-input mono" type="text" placeholder="arn:aws:iam::123456789:role/..." value="arn:aws:iam::123456789:role/ez-github-cd-data-team"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">AWS Region</label>
+        <select class="form-input">
+          <option selected>us-east-1</option>
+          <option>us-west-2</option>
+          <option>eu-west-1</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ECR Repo Name</label>
+        <div class="form-hint">Auto-generated from service name</div>
+        <input class="form-input mono" type="text" value="ez-data-processor" readonly style="opacity:0.7;"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="form-card">
+    <div class="form-section-title">👁 Preview — What will be created</div>
+    <div class="preview-box">
+      <span>📁 </span><span class="hi3">dvir-berko/</span><span class="hi">service-data-processor</span><br/>
+      <span>├── </span><span class="hi2">src/main.py</span><br/>
+      <span>├── </span><span class="hi2">Dockerfile</span><span class="hi"> (multi-stage, non-root)</span><br/>
+      <span>├── </span><span class="hi2">helm/</span><span>  values.yaml · values.dev.yaml · values.prod.yaml</span><br/>
+      <span>│   └── templates/</span><span>  deployment · service · ingress · hpa · pdb · netpol</span><br/>
+      <span>├── </span><span class="hi2">.github/workflows/</span><br/>
+      <span>│   ├── ci.yml</span><span>         (lint → test → build → trivy scan → ecr push)</span><br/>
+      <span>│   ├── cd-prod.yml</span><span>    (promote tag → helm deploy prod)</span><br/>
+      <span>│   └── runtime-security.yml</span><br/>
+      <span>├── </span><span class="hi2">catalog-info.yaml</span><span>  (auto-registered in EZ Portal)</span><br/>
+      <span>└── docs/runbook.md</span><br/>
+      <br/>
+      <span>☁️  ECR repo: </span><span class="hi">ez-data-processor</span><span> will be created in </span><span class="hi2">us-east-1</span><br/>
+      <span>☸️  Namespace: </span><span class="hi">data-team</span><span> · HPA: </span><span class="hi">3–8 replicas</span>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="wizard-footer">
+    <button class="btn btn-ghost">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back
+    </button>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <span style="font-size:12px;color:var(--muted);">Step 2 of 4</span>
+      <button class="btn btn-primary">
+        Next: AWS Config
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
