@@ -25,6 +25,11 @@ spec:
         {{- include "ez.labels" . | nindent 8 }}
       annotations:
         checksum/config: {{ toJson .Values.env | sha256sum }}
+        {{- if .Values.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.metrics.port | quote }}
+        prometheus.io/path: {{ .Values.metrics.path }}
+        {{- end }}
     spec:
       serviceAccountName: {{ include "ez.serviceAccountName" . }}
       securityContext:

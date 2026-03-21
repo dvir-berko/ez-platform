@@ -81,6 +81,16 @@ containerSecurityContext:
   capabilities:
     drop: ["ALL"]
 
+# ── Metrics ──────────────────────────────────────────────────────────────────
+metrics:
+  enabled: true
+  port: "8080"
+  path: /metrics
+
+# ── Network Policy ────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: true
+
 # ── Service Account ──────────────────────────────────────────────────────────
 serviceAccount:
   create:      true

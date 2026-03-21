@@ -30,7 +30,7 @@ spec:
           - $infra/envs/dev/values.yaml
     # ── Source 2: Infra repo (environment values override) ───────────────────
     - repoURL: https://github.com/dvir-berko/infra
-      targetRevision: HEAD
+      targetRevision: main # TODO: pin to semver tag e.g. refs/tags/v1.0.0
       ref: infra
   destination:
     server: https://kubernetes.default.svc
@@ -63,7 +63,7 @@ spec:
           - $infra/envs/staging/values.yaml
     # ── Source 2: Infra repo (environment values override) ───────────────────
     - repoURL: https://github.com/dvir-berko/infra
-      targetRevision: HEAD
+      targetRevision: main # TODO: pin to semver tag e.g. refs/tags/v1.0.0
       ref: infra
   destination:
     server: https://kubernetes.default.svc
@@ -97,7 +97,7 @@ spec:
           - $infra/envs/prod/values.yaml
     # ── Source 2: Infra repo (environment values override) ───────────────────
     - repoURL: https://github.com/dvir-berko/infra
-      targetRevision: HEAD
+      targetRevision: main # TODO: pin to semver tag e.g. refs/tags/v1.0.0
       ref: infra
   destination:
     server: https://kubernetes.default.svc

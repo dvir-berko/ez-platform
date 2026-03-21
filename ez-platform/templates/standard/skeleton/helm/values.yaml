@@ -82,9 +82,20 @@ containerSecurityContext:
   capabilities:
     drop: ["ALL"]
 
+# ── Metrics ──────────────────────────────────────────────────────────────────
+metrics:
+  enabled: true
+  port: "8080"
+  path: /metrics
+
+# ── Network Policy ────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: true
+
 serviceAccount:
   create:      true
-  annotations: {}  # Add eks.amazonaws.com/role-arn for IRSA
+  irsaRoleArn: "${{ values.iamRoleArn }}"  # Auto-populated from template form
+  annotations: {}
 
 topologySpreadConstraints:
   - maxSkew:           1

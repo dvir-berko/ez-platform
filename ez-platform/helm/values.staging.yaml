@@ -1,5 +1,8 @@
 replicaCount: 1
 
+image:
+  pullPolicy: Always
+
 autoscaling:
   enabled: true
   minReplicas: 1

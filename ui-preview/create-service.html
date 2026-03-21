@@ -35,6 +35,29 @@
     min-height: 100vh;
   }
 
+  /* ── SKIP LINK ─────────────────────────────────────────────── */
+  .skip-link {
+    position: absolute; top: -40px; left: 0;
+    background: var(--accent); color: #000;
+    padding: 8px; z-index: 1000;
+    font-weight: 600; text-decoration: none;
+  }
+  .skip-link:focus { top: 0; }
+
+  /* ── SCREEN-READER ONLY ────────────────────────────────────── */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* ── UTILITY CLASSES ───────────────────────────────────────── */
+  .flex { display: flex; }
+  .flex-center { display: flex; align-items: center; }
+  .gap-8  { gap: 8px; }
+  .gap-10 { gap: 10px; }
+  .gap-16 { gap: 16px; }
+
   /* NAV */
   .topnav {
     background: var(--surface); border-bottom: 1px solid var(--border);
@@ -199,8 +222,18 @@
 
   .form-input:focus { border-color: var(--accent); }
   .form-input::placeholder { color: var(--muted); }
-
   .form-input.mono { font-family: var(--font-mono); }
+
+  .form-input.error { border-color: var(--accent3); }
+
+  .field-error {
+    font-size: 11.5px;
+    color: var(--accent3);
+    margin-top: 2px;
+    display: none;
+  }
+
+  .field-error.visible { display: block; }
 
   select.form-input {
     appearance: none;
@@ -222,7 +255,7 @@
     line-height: 1.8;
   }
 
-  .preview-box .hi { color: var(--accent); }
+  .preview-box .hi  { color: var(--accent); }
   .preview-box .hi2 { color: var(--accent2); }
   .preview-box .hi3 { color: var(--text); }
 
@@ -239,53 +272,70 @@
   .btn-primary:hover { background:#00ffa8;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,229,160,0.3); }
   .btn-ghost { background:var(--surface);color:var(--text);border:1px solid var(--border); }
   .btn-ghost:hover { border-color:var(--border-hi); }
+
+  /* ── REDUCED MOTION ────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* ── RESPONSIVE ────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .wizard-wrap { margin: 20px auto; padding: 0 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .template-grid { grid-template-columns: 1fr; }
+    .steps { flex-wrap: wrap; gap: 8px; }
+    .step-connector { display: none; }
+    .topnav { padding: 0 16px; }
+  }
 </style>
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <!-- NAV -->
-<nav class="topnav">
-  <div class="logo-mark">EZ</div>
+<nav class="topnav" aria-label="Top navigation">
+  <div class="logo-mark" aria-hidden="true">EZ</div>
   <div class="logo-text">Platform<span>.</span></div>
-  <div style="width:1px;height:20px;background:var(--border);margin:0 6px;"></div>
-  <div class="breadcrumb">
-    <span style="color:var(--muted);">Create</span>
-    <span class="sep">›</span>
-    <span class="current">New Service</span>
-  </div>
+  <div style="width:1px;height:20px;background:var(--border);margin:0 6px;" aria-hidden="true"></div>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="index.html" style="color:var(--muted);">Create</a>
+    <span class="sep" aria-hidden="true">›</span>
+    <span class="current" aria-current="page">New Service</span>
+  </nav>
 </nav>
 
 <!-- WIZARD -->
-<div class="wizard-wrap">
-  <div class="wizard-title">Create a New Service</div>
-  <div class="wizard-sub">Scaffold a production-ready service in under 5 minutes · CI/CD wired automatically</div>
+<main class="wizard-wrap" id="main-content" tabindex="-1">
+  <h1 class="wizard-title">Create a New Service</h1>
+  <p class="wizard-sub">Scaffold a production-ready service in under 5 minutes · CI/CD wired automatically</p>
 
   <!-- STEPS -->
-  <div class="steps">
-    <div class="step done">
-      <div class="step-num">✓</div>
+  <nav class="steps" aria-label="Wizard steps">
+    <div class="step done" aria-label="Step 1: Choose Template — completed">
+      <div class="step-num" aria-hidden="true">✓</div>
       <div class="step-label">Choose Template</div>
     </div>
-    <div class="step-connector done"></div>
-    <div class="step active">
-      <div class="step-num">2</div>
+    <div class="step-connector done" aria-hidden="true"></div>
+    <div class="step active" aria-label="Step 2: Service Details — current" aria-current="step">
+      <div class="step-num" aria-hidden="true">2</div>
       <div class="step-label">Service Details</div>
     </div>
-    <div class="step-connector"></div>
-    <div class="step">
-      <div class="step-num">3</div>
+    <div class="step-connector" aria-hidden="true"></div>
+    <div class="step" aria-label="Step 3: AWS Config — upcoming">
+      <div class="step-num" aria-hidden="true">3</div>
       <div class="step-label">AWS Config</div>
     </div>
-    <div class="step-connector"></div>
-    <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-label">Review & Create</div>
+    <div class="step-connector" aria-hidden="true"></div>
+    <div class="step" aria-label="Step 4: Review and Create — upcoming">
+      <div class="step-num" aria-hidden="true">4</div>
+      <div class="step-label">Review &amp; Create</div>
     </div>
-  </div>
+  </nav>
 
   <!-- SELECTED TEMPLATE REMINDER -->
   <div style="background:rgba(0,229,160,0.06);border:1px solid rgba(0,229,160,0.2);border-radius:10px;padding:12px 16px;margin-bottom:24px;display:flex;align-items:center;gap:12px;">
-    <div style="font-size:22px;">🚀</div>
+    <div style="font-size:22px;" role="img" aria-label="Rocket">🚀</div>
     <div style="flex:1;">
       <div style="font-size:13px;font-weight:600;color:var(--accent);">Lite Template Selected</div>
       <div style="font-size:12px;color:var(--muted);">Stateless API or worker · Includes App + Dockerfile + Helm + CI/CD</div>
@@ -294,149 +344,360 @@
   </div>
 
   <!-- FORM -->
-  <div class="form-card">
-    <div class="form-section-title">📋 Service Details</div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label class="form-label">Service Name <span class="req">*</span></label>
-        <div class="form-hint">Will be used as the GitHub repo name prefix</div>
-        <input class="form-input mono" type="text" placeholder="my-cool-service" value="data-processor"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Team Owner <span class="req">*</span></label>
-        <div class="form-hint">GitHub team responsible for this service</div>
-        <select class="form-input">
-          <option>platform-team</option>
-          <option>data-team</option>
-          <option>fintech-team</option>
-          <option>core-team</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Description</label>
-        <input class="form-input" type="text" placeholder="What does this service do?" value="Processes incoming data streams from Kafka"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Lifecycle</label>
-        <select class="form-input">
-          <option>experimental</option>
-          <option>development</option>
-          <option selected>production</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Port <span class="req">*</span></label>
-        <input class="form-input mono" type="text" value="8080" placeholder="8080"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Tags</label>
-        <input class="form-input" type="text" placeholder="python, kafka, worker" value="python, kafka"/>
+  <form id="create-service-form" aria-label="Create New Service" novalidate>
+
+    <div class="form-card">
+      <h2 class="form-section-title"><span aria-hidden="true">📋</span> Service Details</h2>
+      <div class="form-grid">
+
+        <div class="form-group">
+          <label class="form-label" for="service-name">
+            Service Name <span class="req" aria-hidden="true">*</span>
+          </label>
+          <div class="form-hint" id="hint-service-name">Will be used as the GitHub repo name prefix</div>
+          <input
+            class="form-input mono"
+            type="text"
+            id="service-name"
+            name="service-name"
+            placeholder="my-cool-service"
+            value="data-processor"
+            required
+            aria-required="true"
+            aria-describedby="hint-service-name error-service-name"
+          />
+          <span class="field-error" id="error-service-name" role="alert" aria-live="polite"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="team-owner">
+            Team Owner <span class="req" aria-hidden="true">*</span>
+          </label>
+          <div class="form-hint" id="hint-team-owner">GitHub team responsible for this service</div>
+          <select
+            class="form-input"
+            id="team-owner"
+            name="team-owner"
+            required
+            aria-required="true"
+            aria-describedby="hint-team-owner error-team-owner"
+          >
+            <option value="platform-team">platform-team</option>
+            <option value="data-team">data-team</option>
+            <option value="fintech-team">fintech-team</option>
+            <option value="core-team">core-team</option>
+          </select>
+          <span class="field-error" id="error-team-owner" role="alert" aria-live="polite"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="description">Description</label>
+          <input
+            class="form-input"
+            type="text"
+            id="description"
+            name="description"
+            placeholder="What does this service do?"
+            value="Processes incoming data streams from Kafka"
+            aria-describedby="hint-description"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="lifecycle">Lifecycle</label>
+          <select class="form-input" id="lifecycle" name="lifecycle">
+            <option value="experimental">experimental</option>
+            <option value="development">development</option>
+            <option value="production" selected>production</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="port">
+            Port <span class="req" aria-hidden="true">*</span>
+          </label>
+          <input
+            class="form-input mono"
+            type="text"
+            id="port"
+            name="port"
+            value="8080"
+            placeholder="8080"
+            required
+            aria-required="true"
+            aria-describedby="error-port"
+            pattern="[0-9]+"
+          />
+          <span class="field-error" id="error-port" role="alert" aria-live="polite"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="tags">Tags</label>
+          <div class="form-hint" id="hint-tags">Comma-separated list of tags</div>
+          <input
+            class="form-input"
+            type="text"
+            id="tags"
+            name="tags"
+            placeholder="python, kafka, worker"
+            value="python, kafka"
+            aria-describedby="hint-tags"
+          />
+        </div>
+
       </div>
     </div>
-  </div>
 
-  <div class="form-card">
-    <div class="form-section-title">☸️ Kubernetes Config</div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label class="form-label">EKS Namespace <span class="req">*</span></label>
-        <input class="form-input mono" type="text" placeholder="my-team-prod" value="data-team"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Dev Replicas</label>
-        <select class="form-input">
-          <option>1</option>
-          <option selected>2</option>
-          <option>3</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Prod Min Replicas (HPA)</label>
-        <select class="form-input">
-          <option>1</option>
-          <option>2</option>
-          <option selected>3</option>
-          <option>4</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Prod Max Replicas (HPA)</label>
-        <select class="form-input">
-          <option>4</option>
-          <option selected>8</option>
-          <option>12</option>
-          <option>16</option>
-        </select>
+    <div class="form-card">
+      <h2 class="form-section-title"><span aria-hidden="true">☸️</span> Kubernetes Config</h2>
+      <div class="form-grid">
+
+        <div class="form-group">
+          <label class="form-label" for="eks-namespace">
+            EKS Namespace <span class="req" aria-hidden="true">*</span>
+          </label>
+          <input
+            class="form-input mono"
+            type="text"
+            id="eks-namespace"
+            name="eks-namespace"
+            placeholder="my-team-prod"
+            value="data-team"
+            required
+            aria-required="true"
+            aria-describedby="error-eks-namespace"
+          />
+          <span class="field-error" id="error-eks-namespace" role="alert" aria-live="polite"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="dev-replicas">Dev Replicas</label>
+          <select class="form-input" id="dev-replicas" name="dev-replicas">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="prod-min-replicas">Prod Min Replicas (HPA)</label>
+          <select class="form-input" id="prod-min-replicas" name="prod-min-replicas">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="prod-max-replicas">Prod Max Replicas (HPA)</label>
+          <select class="form-input" id="prod-max-replicas" name="prod-max-replicas">
+            <option value="4">4</option>
+            <option value="8" selected>8</option>
+            <option value="12">12</option>
+            <option value="16">16</option>
+          </select>
+        </div>
+
       </div>
     </div>
-  </div>
 
-  <div class="form-card">
-    <div class="form-section-title">🔑 IAM / GitHub</div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label class="form-label">GitHub OIDC IAM Role ARN <span class="req">*</span></label>
-        <div class="form-hint">Role that CI uses to push to ECR</div>
-        <input class="form-input mono" type="text" placeholder="arn:aws:iam::123456789:role/..." value="arn:aws:iam::123456789:role/ez-github-ci-data-team"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">CD IAM Role ARN <span class="req">*</span></label>
-        <div class="form-hint">Role that CD uses to deploy via Helm</div>
-        <input class="form-input mono" type="text" placeholder="arn:aws:iam::123456789:role/..." value="arn:aws:iam::123456789:role/ez-github-cd-data-team"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">AWS Region</label>
-        <select class="form-input">
-          <option selected>us-east-1</option>
-          <option>us-west-2</option>
-          <option>eu-west-1</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">ECR Repo Name</label>
-        <div class="form-hint">Auto-generated from service name</div>
-        <input class="form-input mono" type="text" value="ez-data-processor" readonly style="opacity:0.7;"/>
+    <div class="form-card">
+      <h2 class="form-section-title"><span aria-hidden="true">🔑</span> IAM / GitHub</h2>
+      <div class="form-grid">
+
+        <div class="form-group">
+          <label class="form-label" for="ci-iam-role">
+            GitHub OIDC IAM Role ARN <span class="req" aria-hidden="true">*</span>
+          </label>
+          <div class="form-hint" id="hint-ci-iam-role">Role that CI uses to push to ECR</div>
+          <input
+            class="form-input mono"
+            type="text"
+            id="ci-iam-role"
+            name="ci-iam-role"
+            placeholder="arn:aws:iam::123456789:role/..."
+            value="arn:aws:iam::123456789:role/ez-github-ci-data-team"
+            required
+            aria-required="true"
+            aria-describedby="hint-ci-iam-role error-ci-iam-role"
+          />
+          <span class="field-error" id="error-ci-iam-role" role="alert" aria-live="polite"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cd-iam-role">
+            CD IAM Role ARN <span class="req" aria-hidden="true">*</span>
+          </label>
+          <div class="form-hint" id="hint-cd-iam-role">Role that CD uses to deploy via Helm</div>
+          <input
+            class="form-input mono"
+            type="text"
+            id="cd-iam-role"
+            name="cd-iam-role"
+            placeholder="arn:aws:iam::123456789:role/..."
+            value="arn:aws:iam::123456789:role/ez-github-cd-data-team"
+            required
+            aria-required="true"
+            aria-describedby="hint-cd-iam-role error-cd-iam-role"
+          />
+          <span class="field-error" id="error-cd-iam-role" role="alert" aria-live="polite"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="aws-region">AWS Region</label>
+          <select class="form-input" id="aws-region" name="aws-region">
+            <option value="us-east-1" selected>us-east-1</option>
+            <option value="us-west-2">us-west-2</option>
+            <option value="eu-west-1">eu-west-1</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="ecr-repo-name">ECR Repo Name</label>
+          <div class="form-hint" id="hint-ecr-repo">Auto-generated from service name</div>
+          <input
+            class="form-input mono"
+            type="text"
+            id="ecr-repo-name"
+            name="ecr-repo-name"
+            value="ez-data-processor"
+            readonly
+            aria-describedby="hint-ecr-repo"
+            style="opacity:0.7;"
+          />
+        </div>
+
       </div>
     </div>
-  </div>
 
-  <!-- PREVIEW -->
-  <div class="form-card">
-    <div class="form-section-title">👁 Preview — What will be created</div>
-    <div class="preview-box">
-      <span>📁 </span><span class="hi3">dvir-berko/</span><span class="hi">service-data-processor</span><br/>
-      <span>├── </span><span class="hi2">src/main.py</span><br/>
-      <span>├── </span><span class="hi2">Dockerfile</span><span class="hi"> (multi-stage, non-root)</span><br/>
-      <span>├── </span><span class="hi2">helm/</span><span>  values.yaml · values.dev.yaml · values.prod.yaml</span><br/>
-      <span>│   └── templates/</span><span>  deployment · service · ingress · hpa · pdb · netpol</span><br/>
-      <span>├── </span><span class="hi2">.github/workflows/</span><br/>
-      <span>│   ├── ci.yml</span><span>         (lint → test → build → trivy scan → ecr push)</span><br/>
-      <span>│   ├── cd-prod.yml</span><span>    (promote tag → helm deploy prod)</span><br/>
-      <span>│   └── runtime-security.yml</span><br/>
-      <span>├── </span><span class="hi2">catalog-info.yaml</span><span>  (auto-registered in EZ Portal)</span><br/>
-      <span>└── docs/runbook.md</span><br/>
-      <br/>
-      <span>☁️  ECR repo: </span><span class="hi">ez-data-processor</span><span> will be created in </span><span class="hi2">us-east-1</span><br/>
-      <span>☸️  Namespace: </span><span class="hi">data-team</span><span> · HPA: </span><span class="hi">3–8 replicas</span>
+    <!-- PREVIEW -->
+    <div class="form-card">
+      <h2 class="form-section-title"><span aria-hidden="true">👁</span> Preview — What will be created</h2>
+      <pre class="preview-box" aria-label="Preview of files and resources that will be created" tabindex="0">
+<span>📁 </span><span class="hi3">dvir-berko/</span><span class="hi">service-data-processor</span>
+<span>├── </span><span class="hi2">src/main.py</span>
+<span>├── </span><span class="hi2">Dockerfile</span><span class="hi"> (multi-stage, non-root)</span>
+<span>├── </span><span class="hi2">helm/</span><span>  values.yaml · values.dev.yaml · values.prod.yaml</span>
+<span>│   └── templates/</span><span>  deployment · service · ingress · hpa · pdb · netpol</span>
+<span>├── </span><span class="hi2">.github/workflows/</span>
+<span>│   ├── ci.yml</span><span>         (lint → test → build → trivy scan → ecr push)</span>
+<span>│   ├── cd-prod.yml</span><span>    (promote tag → helm deploy prod)</span>
+<span>│   └── runtime-security.yml</span>
+<span>├── </span><span class="hi2">catalog-info.yaml</span><span>  (auto-registered in EZ Portal)</span>
+<span>└── docs/runbook.md</span>
+
+<span>☁️  ECR repo: </span><span class="hi">ez-data-processor</span><span> will be created in </span><span class="hi2">us-east-1</span>
+<span>☸️  Namespace: </span><span class="hi">data-team</span><span> · HPA: </span><span class="hi">3–8 replicas</span>
+      </pre>
     </div>
-  </div>
 
-  <!-- FOOTER -->
-  <div class="wizard-footer">
-    <button class="btn btn-ghost">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Back
-    </button>
-    <div style="display:flex;gap:10px;align-items:center;">
-      <span style="font-size:12px;color:var(--muted);">Step 2 of 4</span>
-      <button class="btn btn-primary">
-        Next: AWS Config
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
+    <!-- FOOTER -->
+    <div class="wizard-footer">
+      <a href="index.html" class="btn btn-ghost">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back
+      </a>
+      <div class="flex-center gap-10">
+        <span style="font-size:12px;color:var(--muted);">Step 2 of 4</span>
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+          Next: AWS Config
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
     </div>
-  </div>
 
-</div>
+  </form>
+
+</main>
+
+<script>
+  // ── Form validation ────────────────────────────────────────────
+  const form = document.getElementById('create-service-form');
+
+  const requiredFields = [
+    { id: 'service-name', errorId: 'error-service-name', label: 'Service Name' },
+    { id: 'team-owner',   errorId: 'error-team-owner',   label: 'Team Owner' },
+    { id: 'port',         errorId: 'error-port',         label: 'Port', pattern: /^[0-9]+$/, patternMsg: 'Port must be a number' },
+    { id: 'eks-namespace',errorId: 'error-eks-namespace',label: 'EKS Namespace' },
+    { id: 'ci-iam-role',  errorId: 'error-ci-iam-role',  label: 'GitHub OIDC IAM Role ARN' },
+    { id: 'cd-iam-role',  errorId: 'error-cd-iam-role',  label: 'CD IAM Role ARN' },
+  ];
+
+  function validateField(fieldDef) {
+    const input = document.getElementById(fieldDef.id);
+    const errorEl = document.getElementById(fieldDef.errorId);
+    const value = input.value.trim();
+    let errorMsg = '';
+
+    if (!value) {
+      errorMsg = fieldDef.label + ' is required.';
+    } else if (fieldDef.pattern && !fieldDef.pattern.test(value)) {
+      errorMsg = fieldDef.patternMsg;
+    }
+
+    if (errorMsg) {
+      input.classList.add('error');
+      input.setAttribute('aria-invalid', 'true');
+      errorEl.textContent = errorMsg;
+      errorEl.classList.add('visible');
+      return false;
+    } else {
+      input.classList.remove('error');
+      input.setAttribute('aria-invalid', 'false');
+      errorEl.textContent = '';
+      errorEl.classList.remove('visible');
+      return true;
+    }
+  }
+
+  // Live validation on blur
+  requiredFields.forEach(function(fieldDef) {
+    const input = document.getElementById(fieldDef.id);
+    input.addEventListener('blur', function() {
+      validateField(fieldDef);
+    });
+    input.addEventListener('input', function() {
+      // Clear error on typing if it was shown
+      const errorEl = document.getElementById(fieldDef.errorId);
+      if (errorEl.classList.contains('visible')) {
+        validateField(fieldDef);
+      }
+    });
+  });
+
+  // Submit validation
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    let isValid = true;
+    let firstInvalidId = null;
+
+    requiredFields.forEach(function(fieldDef) {
+      const fieldValid = validateField(fieldDef);
+      if (!fieldValid && !firstInvalidId) {
+        firstInvalidId = fieldDef.id;
+        isValid = false;
+      }
+      if (!fieldValid) isValid = false;
+    });
+
+    if (!isValid) {
+      // Focus first invalid field
+      document.getElementById(firstInvalidId).focus();
+      return;
+    }
+
+    // If valid, proceed to next step (placeholder)
+    const btn = document.getElementById('submit-btn');
+    btn.textContent = 'Proceeding…';
+    btn.disabled = true;
+    // In a real app, submit logic or navigation would go here
+    setTimeout(function() {
+      btn.innerHTML = 'Next: AWS Config <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      btn.disabled = false;
+    }, 1000);
+  });
+</script>
 
 </body>
 </html>

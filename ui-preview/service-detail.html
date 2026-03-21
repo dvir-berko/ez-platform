@@ -36,6 +36,29 @@
     min-height: 100vh;
   }
 
+  /* ── SKIP LINK ─────────────────────────────────────────────── */
+  .skip-link {
+    position: absolute; top: -40px; left: 0;
+    background: var(--accent); color: #000;
+    padding: 8px; z-index: 1000;
+    font-weight: 600; text-decoration: none;
+  }
+  .skip-link:focus { top: 0; }
+
+  /* ── SCREEN-READER ONLY ────────────────────────────────────── */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* ── UTILITY CLASSES ───────────────────────────────────────── */
+  .flex { display: flex; }
+  .flex-center { display: flex; align-items: center; }
+  .gap-8  { gap: 8px; }
+  .gap-10 { gap: 10px; }
+  .gap-16 { gap: 16px; }
+
   /* TOP NAV */
   .topnav {
     background: var(--surface);
@@ -105,7 +128,17 @@
   .meta-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
 
   .hero-tabs { display: flex; gap: 2px; margin-top: 16px; }
-  .htab { padding: 8px 16px 12px; font-size: 13.5px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .htab {
+    padding: 8px 16px 12px;
+    font-size: 13.5px; font-weight: 500;
+    color: var(--muted); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
   .htab:hover { color: var(--text); }
   .htab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
@@ -226,183 +259,208 @@
   .badge.ok    { background: rgba(0,229,160,0.1); color: var(--accent); }
   .badge.lite  { background: rgba(0,229,160,0.1); color: var(--accent); }
   .badge.std   { background: rgba(61,126,255,0.1); color: var(--accent2); }
+
+  /* ── REDUCED MOTION ────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* ── RESPONSIVE ────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .page-body { flex-direction: column; padding: 16px; }
+    .side-col { width: 100%; }
+    .main-col { width: 100%; }
+    .env-grid { grid-template-columns: 1fr; }
+    .metric-row { grid-template-columns: 1fr; }
+    .hero { padding: 16px 16px 0; }
+    .topnav { padding: 0 16px; gap: 10px; }
+    .hero-tabs { overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <!-- TOP NAV -->
-<nav class="topnav">
-  <div class="logo-mark">EZ</div>
+<nav class="topnav" aria-label="Top navigation">
+  <div class="logo-mark" aria-hidden="true">EZ</div>
   <div class="logo-text">Platform<span>.</span></div>
-  <div style="width:1px;height:20px;background:var(--border);margin:0 6px;"></div>
-  <div class="breadcrumb">
+  <div style="width:1px;height:20px;background:var(--border);margin:0 6px;" aria-hidden="true"></div>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
     <a href="#">Catalog</a>
-    <span class="sep">›</span>
+    <span class="sep" aria-hidden="true">›</span>
     <a href="#">Services</a>
-    <span class="sep">›</span>
-    <span class="current">service-api-gateway</span>
-  </div>
+    <span class="sep" aria-hidden="true">›</span>
+    <span class="current" aria-current="page">service-api-gateway</span>
+  </nav>
   <div class="spacer"></div>
   <button class="btn btn-ghost">
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     Trigger Deploy
   </button>
   <button class="btn btn-primary">
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2C4.686 2 2 4.686 2 8s2.686 6 6 6 6-2.686 6-6-2.686-6-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2C4.686 2 2 4.686 2 8s2.686 6 6 6 6-2.686 6-6-2.686-6-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
     Open Grafana
   </button>
 </nav>
 
 <!-- HERO -->
-<div class="hero">
+<header class="hero">
   <div class="hero-top">
-    <div class="svc-icon">🔀</div>
+    <div class="svc-icon" role="img" aria-label="Service icon: API Gateway">
+      <span aria-hidden="true">🔀</span>
+    </div>
     <div style="flex:1;">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div class="svc-title">service-api-gateway</div>
+      <div class="flex-center gap-10" style="flex-wrap:wrap;">
+        <h1 class="svc-title">service-api-gateway</h1>
         <span class="badge ok">Healthy</span>
         <span class="badge lite">Lite</span>
       </div>
-      <div class="svc-subtitle">Central ingress gateway routing traffic across all downstream microservices · Platform Engineering</div>
-      <div class="svc-meta">
-        <div class="meta-chip"><div class="dot" style="background:var(--accent);"></div> prod: v2.7.3</div>
-        <div class="meta-chip"><div class="dot" style="background:var(--accent2);"></div> dev: v2.8.0-rc.1</div>
-        <div class="meta-chip">🐍 Python</div>
-        <div class="meta-chip">☸ EKS · us-east-1</div>
-        <div class="meta-chip">🔒 GitHub OIDC</div>
-        <div class="meta-chip">📦 ECR: ez-api-gateway</div>
+      <p class="svc-subtitle">Central ingress gateway routing traffic across all downstream microservices · Platform Engineering</p>
+      <div class="svc-meta" role="list" aria-label="Service metadata">
+        <div class="meta-chip" role="listitem"><div class="dot" style="background:var(--accent);" aria-hidden="true"></div> prod: v2.7.3</div>
+        <div class="meta-chip" role="listitem"><div class="dot" style="background:var(--accent2);" aria-hidden="true"></div> dev: v2.8.0-rc.1</div>
+        <div class="meta-chip" role="listitem"><span aria-hidden="true">🐍</span> Python</div>
+        <div class="meta-chip" role="listitem"><span aria-hidden="true">☸</span> EKS · us-east-1</div>
+        <div class="meta-chip" role="listitem"><span aria-hidden="true">🔒</span> GitHub OIDC</div>
+        <div class="meta-chip" role="listitem"><span aria-hidden="true">📦</span> ECR: ez-api-gateway</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-shrink:0;">
-      <button class="btn btn-ghost" style="font-size:12px;">📄 Docs</button>
+    <div class="flex-center gap-8" style="flex-shrink:0;">
+      <button class="btn btn-ghost" style="font-size:12px;"><span aria-hidden="true">📄</span> Docs</button>
       <button class="btn btn-ghost" style="font-size:12px;">
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M9 2h5v5M14 2l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M9 2h5v5M14 2l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         GitHub
       </button>
     </div>
   </div>
-  <div class="hero-tabs">
-    <div class="htab active">Overview</div>
-    <div class="htab">CI/CD</div>
-    <div class="htab">Observability</div>
-    <div class="htab">Kubernetes</div>
-    <div class="htab">Docs</div>
-    <div class="htab">Dependencies</div>
+  <div class="hero-tabs" role="tablist" aria-label="Service sections">
+    <button class="htab active" role="tab" aria-selected="true" aria-controls="tab-overview">Overview</button>
+    <button class="htab" role="tab" aria-selected="false" aria-controls="tab-cicd">CI/CD</button>
+    <button class="htab" role="tab" aria-selected="false" aria-controls="tab-observability">Observability</button>
+    <button class="htab" role="tab" aria-selected="false" aria-controls="tab-kubernetes">Kubernetes</button>
+    <button class="htab" role="tab" aria-selected="false" aria-controls="tab-docs">Docs</button>
+    <button class="htab" role="tab" aria-selected="false" aria-controls="tab-dependencies">Dependencies</button>
   </div>
-</div>
+</header>
 
 <!-- PAGE BODY -->
-<div class="page-body">
+<div class="page-body" id="main-content" tabindex="-1">
 
   <!-- MAIN COL -->
-  <div class="main-col">
+  <main class="main-col" id="tab-overview">
 
     <!-- ENVIRONMENTS -->
-    <div class="card">
+    <section class="card" aria-labelledby="environments-heading">
       <div class="card-header">
-        <div class="card-title">Environments</div>
-        <span style="font-size:12px;color:var(--accent2);cursor:pointer;">ArgoCD →</span>
+        <h2 id="environments-heading" class="card-title">Environments</h2>
+        <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;">ArgoCD →</button>
       </div>
       <div class="card-body">
         <div class="env-grid">
-          <div class="env-card ok">
+          <article class="env-card ok" aria-label="Production environment: healthy">
             <div class="env-name">Production</div>
             <div class="env-version">v2.7.3</div>
-            <div class="env-status"><div class="env-st-dot"></div> 4/4 pods running</div>
+            <div class="env-status">
+              <div class="env-st-dot" aria-hidden="true"></div>
+              <span class="sr-only">Status: </span>4/4 pods running
+            </div>
             <div class="env-meta">Deployed 14m ago · sha-d4f2a81</div>
-          </div>
-          <div class="env-card ok">
+          </article>
+          <article class="env-card ok" aria-label="Development environment: healthy">
             <div class="env-name">Development</div>
             <div class="env-version">v2.8.0-rc.1</div>
-            <div class="env-status"><div class="env-st-dot"></div> 2/2 pods running</div>
+            <div class="env-status">
+              <div class="env-st-dot" aria-hidden="true"></div>
+              <span class="sr-only">Status: </span>2/2 pods running
+            </div>
             <div class="env-meta">Deployed 2m ago · sha-7bc09ef</div>
-          </div>
+          </article>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- LATEST PIPELINE RUN -->
-    <div class="card">
+    <section class="card" aria-labelledby="pipeline-heading">
       <div class="card-header">
-        <div class="card-title">Latest Pipeline Run</div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="width:7px;height:7px;border-radius:50%;background:var(--accent2);animation:pulse 1.4s infinite;"></div>
+        <h2 id="pipeline-heading" class="card-title">Latest Pipeline Run</h2>
+        <div class="flex-center gap-8" aria-live="polite">
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--accent2);animation:pulse 1.4s infinite;" aria-hidden="true"></div>
           <span style="font-size:12px;color:var(--accent2);">In progress · ci.yml · main</span>
         </div>
       </div>
-      <div class="timeline">
-        <div class="tl-item">
-          <div class="tl-left"><div class="tl-dot ok"></div><div class="tl-line"></div></div>
+      <div class="timeline" role="list" aria-label="Pipeline stages">
+        <div class="tl-item" role="listitem">
+          <div class="tl-left" aria-hidden="true"><div class="tl-dot ok"></div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-step">Checkout & Setup</div>
+            <div class="tl-step">Checkout &amp; Setup</div>
             <div class="tl-meta">python 3.12 · actions/checkout@v4</div>
-            <div class="tl-dur">✓ 8s</div>
+            <div class="tl-dur"><span aria-hidden="true">✓</span> 8s <span class="sr-only">(completed)</span></div>
           </div>
         </div>
-        <div class="tl-item">
-          <div class="tl-left"><div class="tl-dot ok"></div><div class="tl-line"></div></div>
+        <div class="tl-item" role="listitem">
+          <div class="tl-left" aria-hidden="true"><div class="tl-dot ok"></div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-step">Lint & Unit Tests</div>
+            <div class="tl-step">Lint &amp; Unit Tests</div>
             <div class="tl-meta">ruff · pytest · 42 tests passed</div>
-            <div class="tl-dur">✓ 24s</div>
+            <div class="tl-dur"><span aria-hidden="true">✓</span> 24s <span class="sr-only">(completed)</span></div>
           </div>
         </div>
-        <div class="tl-item">
-          <div class="tl-left"><div class="tl-dot ok"></div><div class="tl-line"></div></div>
+        <div class="tl-item" role="listitem">
+          <div class="tl-left" aria-hidden="true"><div class="tl-dot ok"></div><div class="tl-line"></div></div>
           <div class="tl-body">
             <div class="tl-step">Docker Build + Trivy Scan</div>
             <div class="tl-meta">SBOM generated · 0 CRITICAL, 2 MEDIUM</div>
-            <div class="tl-dur">✓ 1m 12s</div>
+            <div class="tl-dur"><span aria-hidden="true">✓</span> 1m 12s <span class="sr-only">(completed)</span></div>
           </div>
         </div>
-        <div class="tl-item">
-          <div class="tl-left"><div class="tl-dot run"></div><div class="tl-line"></div></div>
+        <div class="tl-item" role="listitem">
+          <div class="tl-left" aria-hidden="true"><div class="tl-dot run"></div><div class="tl-line"></div></div>
           <div class="tl-body">
             <div class="tl-step">Push to ECR</div>
             <div class="tl-meta">Pushing sha-7bc09ef → ez-api-gateway:sha-7bc09ef</div>
-            <div class="tl-dur" style="color:var(--accent2);">● Running · 28s</div>
+            <div class="tl-dur" style="color:var(--accent2);"><span aria-hidden="true">●</span> Running · 28s <span class="sr-only">(in progress)</span></div>
           </div>
         </div>
-        <div class="tl-item">
-          <div class="tl-left"><div class="tl-dot pend"></div><div class="tl-line"></div></div>
+        <div class="tl-item" role="listitem">
+          <div class="tl-left" aria-hidden="true"><div class="tl-dot pend"></div><div class="tl-line"></div></div>
           <div class="tl-body">
             <div class="tl-step">Helm Deploy to Dev</div>
-            <div class="tl-meta">Waiting for ECR push…</div>
+            <div class="tl-meta">Waiting for ECR push… <span class="sr-only">(pending)</span></div>
           </div>
         </div>
       </div>
       <div class="card-body" style="padding-top:4px;">
-        <div class="log-block">
-          <span class="log-line log-dim">2026-03-19T09:14:22Z  [setup]</span>
-          <span class="log-line log-ok ">✓ Checked out commit sha-7bc09ef on main</span>
-          <span class="log-line log-dim">2026-03-19T09:14:24Z  [lint]</span>
-          <span class="log-line log-ok ">✓ ruff check . — no issues found</span>
-          <span class="log-line log-dim">2026-03-19T09:14:31Z  [test]</span>
-          <span class="log-line log-ok ">✓ 42 passed in 8.3s</span>
-          <span class="log-line log-dim">2026-03-19T09:14:46Z  [build]</span>
-          <span class="log-line log-ok ">✓ Docker image built: sha256:c4f89a1b</span>
-          <span class="log-line log-dim">2026-03-19T09:15:14Z  [scan]</span>
-          <span class="log-line log-warn">⚠ 2 MEDIUM findings (non-blocking)</span>
-          <span class="log-line log-ok ">✓ SBOM attached to release</span>
-          <span class="log-line log-dim">2026-03-19T09:15:58Z  [push]</span>
-          <span class="log-line log-ok ">● Pushing ez-api-gateway:sha-7bc09ef ...</span>
-        </div>
+        <pre class="log-block" aria-label="Pipeline log output" tabindex="0" role="log" aria-live="polite"><span class="log-line log-dim">2026-03-19T09:14:22Z  [setup]</span>
+<span class="log-line log-ok">✓ Checked out commit sha-7bc09ef on main</span>
+<span class="log-line log-dim">2026-03-19T09:14:24Z  [lint]</span>
+<span class="log-line log-ok">✓ ruff check . — no issues found</span>
+<span class="log-line log-dim">2026-03-19T09:14:31Z  [test]</span>
+<span class="log-line log-ok">✓ 42 passed in 8.3s</span>
+<span class="log-line log-dim">2026-03-19T09:14:46Z  [build]</span>
+<span class="log-line log-ok">✓ Docker image built: sha256:c4f89a1b</span>
+<span class="log-line log-dim">2026-03-19T09:15:14Z  [scan]</span>
+<span class="log-line log-warn">⚠ 2 MEDIUM findings (non-blocking)</span>
+<span class="log-line log-ok">✓ SBOM attached to release</span>
+<span class="log-line log-dim">2026-03-19T09:15:58Z  [push]</span>
+<span class="log-line log-ok">● Pushing ez-api-gateway:sha-7bc09ef ...</span></pre>
       </div>
-    </div>
+    </section>
 
     <!-- OBSERVABILITY -->
-    <div class="card">
+    <section class="card" aria-labelledby="observability-heading">
       <div class="card-header">
-        <div class="card-title">Observability (prod · last 1h)</div>
-        <span style="font-size:12px;color:var(--accent2);cursor:pointer;">Full Grafana →</span>
+        <h2 id="observability-heading" class="card-title">Observability (prod · last 1h)</h2>
+        <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;">Full Grafana →</button>
       </div>
       <div class="card-body">
         <div class="metric-row">
-          <div class="metric-box">
+          <article class="metric-box" aria-label="Request Rate metric">
             <div class="metric-label">Request Rate</div>
             <div class="metric-val" style="color:var(--text);">2.4k<span style="font-size:13px;color:var(--muted);">/s</span></div>
             <div class="metric-sub">↑ +12% vs 1h ago</div>
-            <div class="mbar-wrap">
+            <div class="mbar-wrap" role="img" aria-label="Request rate trend chart (bar sparkline)">
               <div class="mbar" style="height:40%"></div>
               <div class="mbar" style="height:55%"></div>
               <div class="mbar" style="height:50%"></div>
@@ -411,12 +469,12 @@
               <div class="mbar" style="height:80%"></div>
               <div class="mbar" style="height:100%"></div>
             </div>
-          </div>
-          <div class="metric-box">
+          </article>
+          <article class="metric-box" aria-label="P99 Latency metric">
             <div class="metric-label">P99 Latency</div>
             <div class="metric-val" style="color:var(--accent);">48<span style="font-size:13px;color:var(--muted);">ms</span></div>
             <div class="metric-sub">Well within SLO (200ms)</div>
-            <div class="mbar-wrap">
+            <div class="mbar-wrap" role="img" aria-label="P99 latency trend chart (bar sparkline)">
               <div class="mbar" style="height:30%;background:var(--accent)"></div>
               <div class="mbar" style="height:25%;background:var(--accent)"></div>
               <div class="mbar" style="height:40%;background:var(--accent)"></div>
@@ -425,12 +483,12 @@
               <div class="mbar" style="height:28%;background:var(--accent)"></div>
               <div class="mbar" style="height:24%;background:var(--accent)"></div>
             </div>
-          </div>
-          <div class="metric-box">
+          </article>
+          <article class="metric-box" aria-label="Error Rate metric">
             <div class="metric-label">Error Rate</div>
             <div class="metric-val" style="color:var(--warn);">0.3<span style="font-size:13px;color:var(--muted);">%</span></div>
             <div class="metric-sub">↓ SLO: &lt;1%</div>
-            <div class="mbar-wrap">
+            <div class="mbar-wrap" role="img" aria-label="Error rate trend chart (bar sparkline)">
               <div class="mbar" style="height:10%;background:var(--warn)"></div>
               <div class="mbar" style="height:12%;background:var(--warn)"></div>
               <div class="mbar" style="height:8%;background:var(--warn)"></div>
@@ -439,141 +497,178 @@
               <div class="mbar" style="height:6%;background:var(--warn)"></div>
               <div class="mbar" style="height:15%;background:var(--warn)"></div>
             </div>
-          </div>
+          </article>
         </div>
-        <div style="font-size:12px;color:var(--muted);font-family:var(--font-mono);">HPA: 4/8 replicas · CPU: 42% · Memory: 318Mi / 512Mi</div>
+        <p style="font-size:12px;color:var(--muted);font-family:var(--font-mono);">HPA: 4/8 replicas · CPU: 42% · Memory: 318Mi / 512Mi</p>
       </div>
-    </div>
+    </section>
 
-  </div>
+  </main>
 
   <!-- SIDE COL -->
-  <div class="side-col">
+  <aside class="side-col" aria-label="Service metadata sidebar">
 
     <!-- ABOUT -->
-    <div class="card">
-      <div class="card-header"><div class="card-title">About</div></div>
+    <section class="card" aria-labelledby="about-heading">
+      <div class="card-header"><h2 id="about-heading" class="card-title">About</h2></div>
       <div class="card-body">
-        <div class="info-row">
-          <div class="info-label">Type</div>
-          <div class="info-val">Service (Lite)</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Owner</div>
-          <div class="info-val" style="color:var(--accent2);">@platform-team</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Lifecycle</div>
-          <div class="info-val"><span class="badge ok">production</span></div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">System</div>
-          <div class="info-val">ez-platform</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Namespace</div>
-          <div class="info-val">platform-prod</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">GitHub</div>
-          <div class="info-val" style="color:var(--accent2);font-size:11px;">dvir-berko/service-api-gateway</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Tags</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
-            <span class="tag">python</span><span class="tag">api</span><span class="tag">gateway</span>
+        <dl>
+          <div class="info-row">
+            <dt class="info-label">Type</dt>
+            <dd class="info-val">Service (Lite)</dd>
           </div>
-        </div>
+          <div class="info-row">
+            <dt class="info-label">Owner</dt>
+            <dd class="info-val" style="color:var(--accent2);">@platform-team</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">Lifecycle</dt>
+            <dd class="info-val"><span class="badge ok">production</span></dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">System</dt>
+            <dd class="info-val">ez-platform</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">Namespace</dt>
+            <dd class="info-val">platform-prod</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">GitHub</dt>
+            <dd class="info-val" style="color:var(--accent2);font-size:11px;">dvir-berko/service-api-gateway</dd>
+          </div>
+          <div class="info-row" style="flex-wrap:wrap;gap:4px;">
+            <dt class="info-label" style="width:100%;">Tags</dt>
+            <dd style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
+              <span class="tag">python</span><span class="tag">api</span><span class="tag">gateway</span>
+            </dd>
+          </div>
+        </dl>
       </div>
-    </div>
+    </section>
 
     <!-- RELATIONS -->
-    <div class="card">
-      <div class="card-header"><div class="card-title">Depends On</div></div>
+    <section class="card" aria-labelledby="depends-heading">
+      <div class="card-header"><h2 id="depends-heading" class="card-title">Depends On</h2></div>
       <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
-        <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;cursor:pointer;">
-          <div style="font-size:16px;">🔐</div>
+        <a href="#" style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;text-decoration:none;color:inherit;" aria-label="service-auth — Service (Standard), status: healthy">
+          <div style="font-size:16px;" aria-hidden="true">🔐</div>
           <div style="flex:1;">
             <div style="font-size:12.5px;font-weight:600;">service-auth</div>
             <div style="font-size:11px;color:var(--muted);">Service (Standard)</div>
           </div>
-          <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;cursor:pointer;">
-          <div style="font-size:16px;">📊</div>
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);" aria-hidden="true"></div>
+          <span class="sr-only">Healthy</span>
+        </a>
+        <a href="#" style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;text-decoration:none;color:inherit;" aria-label="service-analytics — Service (Lite), status: healthy">
+          <div style="font-size:16px;" aria-hidden="true">📊</div>
           <div style="flex:1;">
             <div style="font-size:12.5px;font-weight:600;">service-analytics</div>
             <div style="font-size:11px;color:var(--muted);">Service (Lite)</div>
           </div>
-          <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></div>
-        </div>
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);" aria-hidden="true"></div>
+          <span class="sr-only">Healthy</span>
+        </a>
       </div>
-    </div>
+    </section>
 
     <!-- SECURITY -->
-    <div class="card">
-      <div class="card-header"><div class="card-title">Security</div></div>
+    <section class="card" aria-labelledby="security-heading">
+      <div class="card-header"><h2 id="security-heading" class="card-title">Security</h2></div>
       <div class="card-body">
-        <div class="info-row">
-          <div class="info-label">Last Trivy Scan</div>
-          <div class="info-val" style="font-size:11px;">2m ago</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">CRITICAL</div>
-          <div class="info-val" style="color:var(--accent);">0</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">HIGH</div>
-          <div class="info-val" style="color:var(--text);">0</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">MEDIUM</div>
-          <div class="info-val" style="color:var(--warn);">2</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">SBOM</div>
-          <div class="info-val" style="color:var(--accent);">✓ Attached</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">OPA Policy</div>
-          <div class="info-val" style="color:var(--accent);">✓ Pass</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Falco Runtime</div>
-          <div class="info-val" style="color:var(--accent);">✓ Active</div>
-        </div>
+        <dl>
+          <div class="info-row">
+            <dt class="info-label">Last Trivy Scan</dt>
+            <dd class="info-val" style="font-size:11px;">2m ago</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">CRITICAL</dt>
+            <dd class="info-val" style="color:var(--accent);">0</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">HIGH</dt>
+            <dd class="info-val" style="color:var(--text);">0</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">MEDIUM</dt>
+            <dd class="info-val" style="color:var(--warn);">2</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">SBOM</dt>
+            <dd class="info-val" style="color:var(--accent);"><span aria-hidden="true">✓</span> Attached</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">OPA Policy</dt>
+            <dd class="info-val" style="color:var(--accent);"><span aria-hidden="true">✓</span> Pass</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">Falco Runtime</dt>
+            <dd class="info-val" style="color:var(--accent);"><span aria-hidden="true">✓</span> Active</dd>
+          </div>
+        </dl>
       </div>
-    </div>
+    </section>
 
     <!-- K8s -->
-    <div class="card">
-      <div class="card-header"><div class="card-title">Kubernetes</div></div>
+    <section class="card" aria-labelledby="k8s-heading">
+      <div class="card-header"><h2 id="k8s-heading" class="card-title">Kubernetes</h2></div>
       <div class="card-body">
-        <div class="info-row">
-          <div class="info-label">Replicas</div>
-          <div class="info-val">4 / 8 (HPA)</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">PDB</div>
-          <div class="info-val" style="color:var(--accent);">✓ min 2 available</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Resources</div>
-          <div class="info-val" style="font-size:11px;">100m–500m CPU · 128–512Mi</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">NetworkPolicy</div>
-          <div class="info-val" style="color:var(--accent);">✓ Applied</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">ServiceAccount</div>
-          <div class="info-val" style="font-size:11px;">ez-api-gateway-sa</div>
-        </div>
+        <dl>
+          <div class="info-row">
+            <dt class="info-label">Replicas</dt>
+            <dd class="info-val">4 / 8 (HPA)</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">PDB</dt>
+            <dd class="info-val" style="color:var(--accent);"><span aria-hidden="true">✓</span> min 2 available</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">Resources</dt>
+            <dd class="info-val" style="font-size:11px;">100m–500m CPU · 128–512Mi</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">NetworkPolicy</dt>
+            <dd class="info-val" style="color:var(--accent);"><span aria-hidden="true">✓</span> Applied</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label">ServiceAccount</dt>
+            <dd class="info-val" style="font-size:11px;">ez-api-gateway-sa</dd>
+          </div>
+        </dl>
       </div>
-    </div>
+    </section>
 
-  </div>
+  </aside>
 </div>
+
+<script>
+  // ── Tab switching for hero tabs ────────────────────────────────
+  const heroTabs = document.querySelectorAll('.htab');
+
+  heroTabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      heroTabs.forEach(function(t) {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+    });
+
+    // Keyboard navigation for tabs
+    tab.addEventListener('keydown', function(e) {
+      const tabs = Array.from(heroTabs);
+      const idx = tabs.indexOf(tab);
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        tabs[(idx + 1) % tabs.length].focus();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        tabs[(idx - 1 + tabs.length) % tabs.length].focus();
+      }
+    });
+  });
+</script>
 
 </body>
 </html>
