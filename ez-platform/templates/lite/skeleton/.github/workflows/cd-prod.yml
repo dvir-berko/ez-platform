@@ -16,7 +16,7 @@ jobs:
     name: Deploy to prod
     # GitHub Environment "prod" enforces required reviewers before this runs.
     environment: prod
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@v1
     with:
       service-name:       ${{ values.name }}
       # Extract image tag from the git tag (strip 'v' prefix)
@@ -33,7 +33,7 @@ jobs:
   runtime-security:
     if: ${{ vars.PROD_BASE_URL != '' }}
     needs: deploy-prod
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/runtime-security-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/runtime-security-reusable.yml@v1
     with:
       base-url: ${{ vars.PROD_BASE_URL }}
     secrets: inherit

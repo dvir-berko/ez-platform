@@ -143,11 +143,19 @@ jobs:
             --name   "${{ inputs.eks-cluster-name }}" \
             --alias  "${{ inputs.eks-cluster-name }}"
 
-      # ── 5. Ensure namespace exists ─────────────────────────────────────────
-      - name: Ensure namespace
+      # ── 5. Verify namespace exists (pre-provisioned by Terraform) ────────────
+      - name: Verify namespace
         run: |
-          kubectl get namespace "${{ inputs.namespace }}" >/dev/null 2>&1 || \
-            kubectl create namespace "${{ inputs.namespace }}"
+          if ! kubectl get namespace "${{ inputs.namespace }}" >/dev/null 2>&1; then
+            echo "::error::Namespace '${{ inputs.namespace }}' does not exist."
+            echo "::error::Pre-provision it with Terraform using the eks-namespace module:"
+            echo "::error::  module \"${{ inputs.service-name }}\" {"
+            echo "::error::    source      = \"../../modules/eks-namespace\""
+            echo "::error::    namespace   = \"${{ inputs.namespace }}\""
+            echo "::error::    environment = \"${{ inputs.environment }}\""
+            echo "::error::  }"
+            exit 1
+          fi
 
           # Label namespace for policy engine (Kyverno / OPA Gatekeeper)
           kubectl label namespace "${{ inputs.namespace }}" \

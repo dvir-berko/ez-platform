@@ -8,7 +8,7 @@ on:
 jobs:
   runtime-security:
     if: ${{ vars.PROD_BASE_URL != '' }}
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/runtime-security-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/runtime-security-reusable.yml@v1
     with:
       base-url: ${{ vars.PROD_BASE_URL }}
     secrets: inherit

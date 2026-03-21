@@ -48,6 +48,11 @@ on:
         required: false
         type: boolean
         default: false
+      environment:
+        description: "Target environment (dev | staging | prod). When 'prod', OPA enforces ECR-only images."
+        required: false
+        type: string
+        default: ""
 
     outputs:
       policy-passed:
@@ -161,8 +166,13 @@ jobs:
         id: conftest
         run: |
           if [ -f "/tmp/helm-rendered.yaml" ]; then
-            conftest test /tmp/helm-rendered.yaml \
+            DATA_ARGS=""
+            if [ -n "${{ inputs.environment }}" ]; then
+              DATA_ARGS="--data '{\"environment\":\"${{ inputs.environment }}\"}'"
+            fi
+            eval conftest test /tmp/helm-rendered.yaml \
               --policy "${{ inputs.policy-path }}" \
+              $DATA_ARGS \
               --output table \
               --all-namespaces
           fi

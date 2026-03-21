@@ -26,14 +26,15 @@ jobs:
   # ── Policy checks (runs on every PR) ───────────────────────────────────────
   policy:
     if: github.event_name == 'pull_request'
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/policy-check-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/policy-check-reusable.yml@v1
     with:
       helm-chart-path: helm
       policy-path:     .ez/policies
+      environment: ${{ github.base_ref == 'main' && 'prod' || github.base_ref == 'staging' && 'staging' || 'dev' }}
 
   # ── Build · Test · Scan · Push ─────────────────────────────────────────────
   ci:
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/ci-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/ci-reusable.yml@v1
     with:
       service-name:    ${{ values.name }}
       ecr-repository:  ${{ values.ecrRepository }}
@@ -48,7 +49,7 @@ jobs:
   deploy-dev:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     needs: ci
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@v1
     with:
       service-name:       ${{ values.name }}
       image-repository:   ${{ needs.ci.outputs.image-repository }}
@@ -64,7 +65,7 @@ jobs:
   deploy-staging:
     if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     needs: ci
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/cd-reusable.yml@v1
     with:
       service-name:       ${{ values.name }}
       image-repository:   ${{ needs.ci.outputs.image-repository }}
