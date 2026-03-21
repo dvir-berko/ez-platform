@@ -19,9 +19,6 @@ metadata:
     - url:   https://github.com/${{ values.githubOrg }}/${{ values.name }}/actions
       title: CI / CD
       icon:  github
-    - url:   ${{ values.grafanaDashboardUrl | default("https://grafana.internal") }}
-      title: Grafana Dashboard
-      icon:  dashboard
 spec:
   type:      service
   lifecycle:  experimental

@@ -39,11 +39,11 @@ This is the most important component. It's what makes this **platform engineerin
 │  service repo (.github/workflows/)  │
 │                                     │
 │  ci.yml:                            │
-│    uses: org/ez-workflows/.github/  │
+│    uses: dvir-berko/ez-workflows/.github/  │
 │    workflows/ci-reusable.yml@main   │
 │    with:                            │
 │      service-name: my-service       │
-│      ecr-repository: org/my-svc    │
+│      ecr-repository: dvir-berko/my-svc    │
 │      ...                            │
 └──────────────────┬──────────────────┘
                    │ delegates to

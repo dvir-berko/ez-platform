@@ -25,9 +25,7 @@ ingress:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
-  host: "ez-platform.your-domain.com"
+  host: ""
 
 env:
   APP_ENV: production

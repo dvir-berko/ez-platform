@@ -41,4 +41,3 @@ Managed by Terraform (`ez-infra`). Connection string injected via External Secre
 
 - [GitHub Repo](https://github.com/${{ values.githubOrg }}/${{ values.name }})
 - [CI/CD](https://github.com/${{ values.githubOrg }}/${{ values.name }}/actions)
-- [EZ Portal](https://portal.ez.internal/catalog/${{ values.name }})

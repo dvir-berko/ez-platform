@@ -39,10 +39,9 @@ make run
 - **Dev:** auto-deploys on merge to `main`
 - **Prod:** deploy by pushing a `vX.Y.Z` tag, then approve in GitHub
 
-See [EZ Golden Path](https://ez.internal/docs/golden-path) for full details.
+See the EZ Golden Path documentation in this repository for the full contract.
 
 ## Links
 
 - [GitHub Repo](https://github.com/${{ values.githubOrg }}/${{ values.name }})
 - [CI/CD](https://github.com/${{ values.githubOrg }}/${{ values.name }}/actions)
-- [EZ Portal](https://portal.ez.internal/catalog/${{ values.name }})

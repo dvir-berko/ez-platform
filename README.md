@@ -68,7 +68,8 @@ Developer clicks "Create Service" in EZ Portal
 
 ### Flow 1: Create a new service (5 min)
 
-1. Open EZ Portal → "Create Service (Lite)"
+1. Open EZ Portal through the AWS ALB hostname provided by the deployment.
+2. Use "Create Service (Lite)" in the portal.
 2. Fill form: name, team, AWS config, IAM roles
 3. Backstage creates the repo and registers it in the catalog
 4. CI runs automatically → image pushed to ECR

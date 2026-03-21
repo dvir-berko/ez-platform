@@ -1,0 +1,9 @@
+node_modules
+yarn-error.log
+.git
+.gitignore
+coverage
+dist
+packages/*/dist
+packages/*/node_modules
+*.log

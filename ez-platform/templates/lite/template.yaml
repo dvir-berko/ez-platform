@@ -12,7 +12,7 @@ metadata:
     - python
     - kubernetes
   annotations:
-    backstage.io/managed-by-location: "url:https://github.com/your-org/ez-platform/blob/main/templates/lite/template.yaml"
+    backstage.io/managed-by-location: "url:https://github.com/dvir-berko/ez-platform/blob/main/templates/lite/template.yaml"
 
 spec:
   owner: group:platform-engineering
@@ -96,7 +96,7 @@ spec:
         ecrRepository:
           title: ECR Repository Name
           type: string
-          description: "ECR repository (e.g. my-org/my-service)"
+          description: "ECR repository (e.g. dvir-berko/my-service)"
 
     - title: IAM Roles (OIDC)
       required:
@@ -134,7 +134,7 @@ spec:
         githubOrg:
           title: GitHub Organization
           type: string
-          default: "your-org"
+          default: "dvir-berko"
         repoName:
           title: Repository Name
           type: string
@@ -144,10 +144,6 @@ spec:
           type: string
           default: private
           enum: [private, internal, public]
-        grafanaDashboardUrl:
-          title: Grafana Dashboard URL (optional)
-          type: string
-          description: "Leave blank to use default"
 
   # ── Steps (what Backstage runs when the form is submitted) ─────────────────
   steps:
@@ -173,7 +169,6 @@ spec:
           cdStagingRoleArn:   ${{ parameters.cdStagingRoleArn }}
           cdProdRoleArn:      ${{ parameters.cdProdRoleArn }}
           githubOrg:          ${{ parameters.githubOrg }}
-          grafanaDashboardUrl: ${{ parameters.grafanaDashboardUrl }}
 
     - id: create-repo
       name: Create GitHub repository
@@ -225,5 +220,5 @@ spec:
           - Update `docs/runbook.md` with your service-specific runbook
 
           ### Get help
-          - [EZ Docs](https://ez.internal/docs)
-          - [#platform-engineering](https://slack.internal/channels/platform-engineering)
+          - Read the generated `docs/` files in the service repository.
+          - Contact the platform engineering team through your usual internal support channel.

@@ -1,32 +1,16 @@
 app:
+  # Use the public AWS load balancer URL here, e.g. https://<alb-dns-name>
   baseUrl: ${APP_BASE_URL}
 
 backend:
   baseUrl: ${BACKEND_BASE_URL}
   listen:
+    host: 0.0.0.0
     port: 7007
-  database:
-    client: pg
-    connection:
-      host:     ${POSTGRES_HOST}
-      port:     ${POSTGRES_PORT}
-      user:     ${POSTGRES_USER}
-      password: ${POSTGRES_PASSWORD}
-      database: ${POSTGRES_DB}
-  cache:
-    store: memcache
-    connection: ${MEMCACHE_CONNECTION}
-
-techdocs:
-  builder: 'external'
-  generator:
-    runIn: 'local'
-  publisher:
-    type:            'awsS3'
-    awsS3:
-      bucketName:  ${TECHDOCS_S3_BUCKET}
-      region:      ${AWS_REGION}
-      accountId:   ${AWS_ACCOUNT_ID}
+  cors:
+    origin: ${APP_BASE_URL}
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
 
 auth:
   environment: production

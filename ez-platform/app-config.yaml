@@ -24,14 +24,6 @@ backend:
 integrations:
   github:
     - host: github.com
-      apps:
-        - $include: github-app-credentials.yaml
-
-proxy:
-  '/grafana/api':
-    target: ${GRAFANA_URL}
-    headers:
-      Authorization: "Bearer ${GRAFANA_TOKEN}"
 
 # ── Techdocs ──────────────────────────────────────────────────────────────────
 techdocs:
@@ -54,7 +46,7 @@ auth:
 scaffolder:
   defaultAuthor:
     name:  EZ Platform Bot
-    email: ez-bot@your-org.internal
+    email: ez-platform@dvir-berko.local
 
 # ── Catalog ──────────────────────────────────────────────────────────────────
 catalog:
@@ -68,12 +60,12 @@ catalog:
   locations:
     # EZ Platform templates
     - type: file
-      target: ../../templates/lite/template.yaml
+      target: ./templates/lite/template.yaml
       rules:
         - allow: [Template]
 
     - type: file
-      target: ../../templates/standard/template.yaml
+      target: ./templates/standard/template.yaml
       rules:
         - allow: [Template]
 
@@ -83,30 +75,5 @@ catalog:
 
     # Your organization's services (registered via Backstage or catalog-info.yaml)
     # - type: github-discovery
-    #   target: https://github.com/your-org
+    #   target: https://github.com/dvir-berko
     #   catalogPath: /catalog-info.yaml
-
-# ── Kubernetes plugin ─────────────────────────────────────────────────────────
-kubernetes:
-  serviceLocatorMethod:
-    type: multiTenant
-  clusterLocatorMethods:
-    - type: config
-      clusters:
-        - url:                  ${EKS_DEV_URL}
-          name:                 ez-dev
-          authProvider:         aws
-          skipTLSVerify:        false
-          skipMetricsLookup:    false
-          caData:               ${EKS_DEV_CA_DATA}
-          assumeRole:           ${EKS_BACKSTAGE_ROLE_ARN}
-          externalId:           backstage-dev
-
-        - url:                  ${EKS_PROD_URL}
-          name:                 ez-prod
-          authProvider:         aws
-          skipTLSVerify:        false
-          skipMetricsLookup:    false
-          caData:               ${EKS_PROD_CA_DATA}
-          assumeRole:           ${EKS_BACKSTAGE_ROLE_ARN}
-          externalId:           backstage-prod
