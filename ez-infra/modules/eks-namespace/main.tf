@@ -5,7 +5,8 @@
 #   - EZ platform labels
 #   - ResourceQuota (prevents noisy-neighbor)
 #   - LimitRange (default container limits)
-#   - NetworkPolicy (deny all ingress by default, allow from same namespace + ingress)
+#   - NetworkPolicy (deny all ingress by default, allow same namespace, ingress controllers,
+#     and private VPC source ranges)
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "kubernetes_namespace" "this" {
@@ -32,12 +33,12 @@ resource "kubernetes_resource_quota" "this" {
 
   spec {
     hard = {
-      "requests.cpu"       = var.quota_requests_cpu
-      "requests.memory"    = var.quota_requests_memory
-      "limits.cpu"         = var.quota_limits_cpu
-      "limits.memory"      = var.quota_limits_memory
-      "pods"               = var.quota_max_pods
-      "services"           = "20"
+      "requests.cpu"           = var.quota_requests_cpu
+      "requests.memory"        = var.quota_requests_memory
+      "limits.cpu"             = var.quota_limits_cpu
+      "limits.memory"          = var.quota_limits_memory
+      "pods"                   = var.quota_max_pods
+      "services"               = "20"
       "persistentvolumeclaims" = "10"
     }
   }
@@ -63,7 +64,7 @@ resource "kubernetes_limit_range" "this" {
     }
     limit {
       type = "Pod"
-      max  = {
+      max = {
         cpu    = "4"
         memory = "8Gi"
       }
@@ -71,7 +72,8 @@ resource "kubernetes_limit_range" "this" {
   }
 }
 
-# Default-deny network policy — only allow within namespace and from ingress controller
+# Default-deny network policy — allow same-namespace traffic, common ingress controllers,
+# and VPC-private sources so ALB/NLB-backed workloads still function.
 resource "kubernetes_network_policy" "default_deny" {
   metadata {
     name      = "default-deny-ingress"
@@ -79,7 +81,7 @@ resource "kubernetes_network_policy" "default_deny" {
   }
 
   spec {
-    pod_selector {}  # Selects all pods
+    pod_selector {} # Selects all pods
     policy_types = ["Ingress"]
 
     ingress {
@@ -101,6 +103,25 @@ resource "kubernetes_network_policy" "default_deny" {
           match_labels = {
             "kubernetes.io/metadata.name" = "ingress-nginx"
           }
+        }
+      }
+    }
+
+    ingress {
+      # Allow traffic from ALB/NLB data paths inside typical VPC ranges.
+      from {
+        ip_block {
+          cidr = "10.0.0.0/8"
+        }
+      }
+      from {
+        ip_block {
+          cidr = "172.16.0.0/12"
+        }
+      }
+      from {
+        ip_block {
+          cidr = "192.168.0.0/16"
         }
       }
     }

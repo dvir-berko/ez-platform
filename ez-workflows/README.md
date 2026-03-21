@@ -71,13 +71,31 @@ jobs:
       ...
 ```
 
+## Prod Promotion Contract
+
+Use the promotion workflow to move an already-built `staging-*` image tag into the prod values file in your infra repo. The workflow requires an explicit `values-file` path so it does not assume a shared global file.
+
+```yaml
+jobs:
+  promote-prod:
+    uses: your-org/ez-workflows/.github/workflows/promote-prod-reusable.yml@main
+    with:
+      service-name:      my-service
+      image-tag:         staging-abc12345
+      reason:            release approved by platform
+      infra-repo:        your-org/ez-infra
+      values-file:       envs/prod/services/my-service.yaml
+      image-tag-path:    .image.tag
+    secrets: inherit
+```
+
 ## Governance Model
 
 | Environment | Gate | Trigger |
 |-------------|------|---------|
 | `dev` | Auto-deploy | Merge to `main` |
 | `staging` | Auto-deploy | Merge to `main` |
-| `prod` | **Required reviewer approval** | Tag `vX.Y.Z` |
+| `prod` | **Required reviewer approval** | Promote a `staging-*` image tag |
 
 Approval gates are configured as **GitHub Environments** on the caller's repository. No additional tooling required.
 
@@ -85,7 +103,7 @@ Approval gates are configured as **GitHub Environments** on the caller's reposit
 
 - **OIDC auth only** — no static AWS keys stored in GitHub Secrets
 - Each environment has a **separate IAM role** scoped to its EKS namespace
-- Image scanning (Grype) blocks on `HIGH` severity by default
+- Image scanning (Trivy) blocks on `HIGH` severity by default
 - SBOM generated for every build (Syft, SPDX format)
 - Gitleaks runs on every PR
 

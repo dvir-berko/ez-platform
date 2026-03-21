@@ -1,9 +1,19 @@
-variable "aws_region"       { type = string; default = "us-east-1" }
-variable "eks_cluster_name" { type = string; default = "ez-prod" }
-variable "github_org"       { type = string }
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "eks_cluster_name" {
+  type    = string
+  default = "ez-prod"
+}
+
+variable "github_org" {
+  type = string
+}
 
 variable "services" {
-  type = map(object({ team = string }))
+  type    = map(object({ team = string }))
   default = {}
 }
 

@@ -70,9 +70,6 @@ module "services" {
   service_name    = each.key
   team            = each.value.team
   max_image_count = 100
-
-  ci_role_arns = []
-  cd_role_arns = []
 }
 
 # Step 2: IAM roles (needs ECR ARN)
@@ -99,8 +96,8 @@ resource "aws_ecr_repository_policy" "services" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowCIPush"
-        Effect = "Allow"
+        Sid       = "AllowCIPush"
+        Effect    = "Allow"
         Principal = { AWS = module.iam_roles[each.key].ci_role_arn }
         Action = [
           "ecr:BatchCheckLayerAvailability",
@@ -110,6 +107,22 @@ resource "aws_ecr_repository_policy" "services" {
           "ecr:UploadLayerPart",
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage",
+        ]
+      },
+      {
+        Sid    = "AllowCDPull"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            module.iam_roles[each.key].cd_dev_role_arn,
+            module.iam_roles[each.key].cd_prod_role_arn,
+          ]
+        }
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:DescribeImages",
         ]
       },
     ]
@@ -123,6 +136,6 @@ module "namespaces" {
   namespace             = each.key
   team                  = each.value.team_name
   environment           = "prod"
-  quota_requests_cpu    = each.value.quota_cpu    != null ? each.value.quota_cpu    : "8"
+  quota_requests_cpu    = each.value.quota_cpu != null ? each.value.quota_cpu : "8"
   quota_requests_memory = each.value.quota_memory != null ? each.value.quota_memory : "16Gi"
 }

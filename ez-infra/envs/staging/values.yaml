@@ -1,7 +1,7 @@
-# ── Staging environment overrides ──────────────────────────────────────────
-# Image tag is automatically updated by CI via yq patch
+# ── staging environment overrides ───────────────────────────────────────────
+# Image tag is automatically updated by CI on the explicit values file
 image:
-  tag: "staging-latest"  # updated by CI: yq -i '.image.tag = "staging-XXXXXXXX"'
+  tag: "staging-latest"  # updated by CI with the selected env-shortsha tag
 
 replicaCount: 2
 
