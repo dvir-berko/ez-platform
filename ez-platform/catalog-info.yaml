@@ -21,7 +21,7 @@ metadata:
   name: ez-portal
   description: "EZ Developer Portal (Backstage)"
   annotations:
-    github.com/project-slug: your-org/ez-platform
+    github.com/project-slug: dvir-berko/ez-platform
     backstage.io/techdocs-ref: dir:.
 spec:
   type:      website

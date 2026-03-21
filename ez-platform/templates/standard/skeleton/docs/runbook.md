@@ -29,7 +29,7 @@ kubectl logs -l app.kubernetes.io/name=${{ values.name }} -n ${{ values.namespac
 
 1. Check ExternalSecret is synced: `kubectl get externalsecret -n ${{ values.namespace }}`
 2. Check the K8s secret exists: `kubectl get secret ${{ values.name }}-secrets -n ${{ values.namespace }}`
-3. Verify Secrets Manager value: `aws secretsmanager get-secret-value --secret-id ${{ values.name }}/dev/app`
+3. Verify the environment-specific secret in AWS Secrets Manager contains `database_url`.
 
 ---
 

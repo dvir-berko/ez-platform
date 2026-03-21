@@ -1,6 +1,6 @@
 aws_region       = "us-east-1"
 eks_cluster_name = "ez-prod"
-github_org       = "your-org"
+github_org       = "dvir-berko"
 
 services = {
   "example-service" = {

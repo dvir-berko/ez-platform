@@ -16,7 +16,7 @@ If anything is missing, contact `#platform-engineering`.
 
 ### Step 1: Open EZ Portal
 
-Navigate to `https://portal.ez.internal` and sign in with GitHub.
+Navigate to the EZ Portal AWS ALB hostname and sign in with GitHub.
 
 ### Step 2: Click "Create"
 
@@ -31,7 +31,7 @@ In the left sidebar, click **Create** → choose **EZ Lite Service** (stateless)
 | AWS Account ID | 12-digit AWS account |
 | EKS Cluster (Dev) | Usually `ez-dev` |
 | Namespace | Your team's namespace |
-| ECR Repository | `your-org/your-service-name` |
+| ECR Repository | `dvir-berko/your-service-name` |
 | CI Role ARN | Provided by platform team for your service |
 | CD Dev Role ARN | Provided by platform team |
 | CD Prod Role ARN | Provided by platform team |
@@ -49,6 +49,8 @@ Backstage will:
 - CI runs: build → test → scan → push to ECR
 - CD runs automatically to **dev** on merge to main
 - Visit **EZ Portal** → your service to see live status
+
+No custom domain is required. The portal and services are exposed through AWS load balancer DNS names until you add one later.
 
 ## Promote to prod
 

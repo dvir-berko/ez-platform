@@ -1,0 +1,241 @@
+name: Deploy EZ Platform
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ez-platform/**'
+      - '.github/workflows/ez-platform-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+concurrency:
+  group: ez-platform-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.name }}
+    steps:
+      - id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build and Push Portal Image
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image-repository: ${{ steps.meta.outputs.repository }}
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        working-directory: ez-platform
+        run: yarn install --network-timeout 300000
+
+      - name: Build Backstage app
+        working-directory: ez-platform
+        run: yarn build:all
+        env:
+          CI: "true"
+
+      - name: Compute image metadata
+        id: meta
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: |
+          REGION="${AWS_REGION:-us-east-1}"
+          ACCOUNT="${AWS_ACCOUNT_ID}"
+          if [ -z "$ACCOUNT" ]; then
+            echo "::error::Repository variable AWS_ACCOUNT_ID is required"
+            exit 1
+          fi
+
+          REPO="${{ vars.EZ_PLATFORM_ECR_REPOSITORY }}"
+          if [ -z "$REPO" ]; then
+            REPO="${{ github.repository }}"
+          fi
+
+          TAG="${{ needs.prepare.outputs.environment }}-${GITHUB_SHA::8}"
+          REGISTRY="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com"
+
+          echo "repository=${REGISTRY}/${REPO}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "region=${REGION}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.EZ_PLATFORM_CI_ROLE_ARN }}
+          aws-region: ${{ steps.meta.outputs.region }}
+          role-session-name: ez-platform-ci
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          IMAGE_REPOSITORY: ${{ steps.meta.outputs.repository }}
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker build -f ez-platform/Dockerfile -t "${IMAGE_REPOSITORY}:${IMAGE_TAG}" ez-platform
+          docker push "${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
+  deploy:
+    name: Deploy Portal to AWS
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.prepare.outputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DEPLOY_ENV: ${{ needs.prepare.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve deploy configuration
+        id: cfg
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+          K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE }}
+        run: |
+          REGION="${AWS_REGION:-us-east-1}"
+          NAMESPACE="${K8S_NAMESPACE:-ez-platform}"
+
+          if [ -z "$CLUSTER_NAME" ]; then
+            echo "::error::Environment variable EKS_CLUSTER_NAME is required"
+            exit 1
+          fi
+
+          echo "region=${REGION}" >> "$GITHUB_OUTPUT"
+          echo "cluster=${CLUSTER_NAME}" >> "$GITHUB_OUTPUT"
+          echo "namespace=${NAMESPACE}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.EZ_PLATFORM_CD_ROLE_ARN }}
+          aws-region: ${{ steps.cfg.outputs.region }}
+          role-session-name: ez-platform-cd-${{ env.DEPLOY_ENV }}
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region "${{ steps.cfg.outputs.region }}" \
+            --name "${{ steps.cfg.outputs.cluster }}"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Ensure namespace exists
+        run: kubectl get namespace "${{ steps.cfg.outputs.namespace }}" >/dev/null 2>&1 || kubectl create namespace "${{ steps.cfg.outputs.namespace }}"
+
+      - name: Create application secret
+        env:
+          AUTH_GITHUB_CLIENT_ID: ${{ secrets.AUTH_GITHUB_CLIENT_ID }}
+          AUTH_GITHUB_CLIENT_SECRET: ${{ secrets.AUTH_GITHUB_CLIENT_SECRET }}
+        run: |
+          kubectl create secret generic ez-platform-env \
+            --namespace "${{ steps.cfg.outputs.namespace }}" \
+            --from-literal=AUTH_GITHUB_CLIENT_ID="${AUTH_GITHUB_CLIENT_ID}" \
+            --from-literal=AUTH_GITHUB_CLIENT_SECRET="${AUTH_GITHUB_CLIENT_SECRET}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Initial Helm deploy
+        run: |
+          helm upgrade ez-platform ez-platform/helm \
+            --install \
+            --namespace "${{ steps.cfg.outputs.namespace }}" \
+            --atomic \
+            --wait \
+            --timeout 10m \
+            -f "ez-platform/helm/values.${{ env.DEPLOY_ENV }}.yaml" \
+            --set "image.repository=${{ needs.build.outputs.image-repository }}" \
+            --set "image.tag=${{ needs.build.outputs.image-tag }}" \
+            --set "global.environment=${{ env.DEPLOY_ENV }}" \
+            --set "global.commitSha=${{ github.sha }}" \
+            --set "env.APP_BASE_URL=http://placeholder.local" \
+            --set "env.BACKEND_BASE_URL=http://placeholder.local"
+
+      - name: Wait for ALB hostname
+        id: alb
+        run: |
+          for _ in $(seq 1 30); do
+            HOSTNAME="$(kubectl get ingress ez-platform -n "${{ steps.cfg.outputs.namespace }}" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
+            if [ -n "$HOSTNAME" ]; then
+              echo "hostname=$HOSTNAME" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "::error::Timed out waiting for the AWS load balancer hostname"
+          exit 1
+
+      - name: Finalize public URLs
+        run: |
+          PUBLIC_URL="http://${{ steps.alb.outputs.hostname }}"
+
+          helm upgrade ez-platform ez-platform/helm \
+            --install \
+            --namespace "${{ steps.cfg.outputs.namespace }}" \
+            --atomic \
+            --wait \
+            --timeout 10m \
+            -f "ez-platform/helm/values.${{ env.DEPLOY_ENV }}.yaml" \
+            --set "image.repository=${{ needs.build.outputs.image-repository }}" \
+            --set "image.tag=${{ needs.build.outputs.image-tag }}" \
+            --set "global.environment=${{ env.DEPLOY_ENV }}" \
+            --set "global.commitSha=${{ github.sha }}" \
+            --set "env.APP_BASE_URL=${PUBLIC_URL}" \
+            --set "env.BACKEND_BASE_URL=${PUBLIC_URL}"
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/ez-platform \
+            --namespace "${{ steps.cfg.outputs.namespace }}" \
+            --timeout=300s
+
+      - name: Publish summary
+        run: |
+          echo "## EZ Platform deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: \`${{ env.DEPLOY_ENV }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Namespace: \`${{ steps.cfg.outputs.namespace }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: \`${{ needs.build.outputs.image-repository }}:${{ needs.build.outputs.image-tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: http://${{ steps.alb.outputs.hostname }}" >> "$GITHUB_STEP_SUMMARY"
