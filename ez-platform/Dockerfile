@@ -18,6 +18,10 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 COPY --from=build /app /app
 
+RUN chown -R node:node /app
+
+USER node
+
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=7007
