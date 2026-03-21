@@ -65,3 +65,12 @@ podDisruptionBudget:
 global:
   environment: ""
   commitSha: ""
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels: {}
+
+prometheusRule:
+  enabled: false

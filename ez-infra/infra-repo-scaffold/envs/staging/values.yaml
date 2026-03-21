@@ -1,0 +1,9 @@
+# Staging environment overrides for EZ Platform Helm chart
+# This file lives in the separate dvir-berko/infra repo at envs/staging/values.yaml
+
+global:
+  environment: staging
+
+ingress:
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing

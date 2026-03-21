@@ -1,0 +1,10 @@
+# Prod environment overrides for EZ Platform Helm chart
+# This file lives in the separate dvir-berko/infra repo at envs/prod/values.yaml
+
+global:
+  environment: prod
+
+ingress:
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/certificate-arn: ""  # TODO: set your ACM certificate ARN

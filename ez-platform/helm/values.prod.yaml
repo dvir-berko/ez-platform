@@ -16,3 +16,7 @@ resources:
   limits:
     cpu: 2000m
     memory: 2048Mi
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

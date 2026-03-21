@@ -1,4 +1,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
+# PREREQUISITES: Before applying this file, ensure:
+#   1. ArgoCD is installed: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+#   2. Infra repo exists: https://github.com/dvir-berko/infra with envs/{dev,staging,prod}/values.yaml
+#   3. ArgoCD has access to infra repo (deploy key or GitHub App)
+#   4. Pin targetRevision to semver tag before prod deployment
+# ─────────────────────────────────────────────────────────────────────────────
 # EZ Platform — ArgoCD Application Manifests
 #
 # Three Applications (dev / staging / prod) using ArgoCD multi-source (v2.6+):
@@ -30,7 +36,7 @@ spec:
           - $infra/envs/dev/values.yaml
     # ── Source 2: Infra repo (environment values override) ───────────────────
     - repoURL: https://github.com/dvir-berko/infra
-      targetRevision: main # TODO: pin to semver tag e.g. refs/tags/v1.0.0
+      targetRevision: main # TODO(platform-team): Pin to semver tag before prod go-live e.g. refs/tags/v1.0.0
       ref: infra
   destination:
     server: https://kubernetes.default.svc
@@ -63,7 +69,7 @@ spec:
           - $infra/envs/staging/values.yaml
     # ── Source 2: Infra repo (environment values override) ───────────────────
     - repoURL: https://github.com/dvir-berko/infra
-      targetRevision: main # TODO: pin to semver tag e.g. refs/tags/v1.0.0
+      targetRevision: main # TODO(platform-team): Pin to semver tag before prod go-live e.g. refs/tags/v1.0.0
       ref: infra
   destination:
     server: https://kubernetes.default.svc
@@ -97,7 +103,7 @@ spec:
           - $infra/envs/prod/values.yaml
     # ── Source 2: Infra repo (environment values override) ───────────────────
     - repoURL: https://github.com/dvir-berko/infra
-      targetRevision: main # TODO: pin to semver tag e.g. refs/tags/v1.0.0
+      targetRevision: main # TODO(platform-team): Pin to semver tag before prod go-live e.g. refs/tags/v1.0.0
       ref: infra
   destination:
     server: https://kubernetes.default.svc

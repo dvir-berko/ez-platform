@@ -1,0 +1,37 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "ez-platform.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ez-platform.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: ez-platform.rules
+      rules:
+        - alert: EZPlatformDown
+          expr: up{job="{{ include "ez-platform.fullname" . }}"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "EZ Platform is down"
+            description: "EZ Platform has been down for more than 5 minutes."
+        - alert: EZPlatformHighMemory
+          expr: container_memory_usage_bytes{pod=~"{{ include "ez-platform.fullname" . }}-.*"} > 1.5e9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "EZ Platform high memory usage"
+            description: "EZ Platform memory usage is above 1.5GB."
+        - alert: EZPlatformHighRestart
+          expr: kube_pod_container_status_restarts_total{pod=~"{{ include "ez-platform.fullname" . }}-.*"} > 5
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "EZ Platform pod restarting frequently"
+            description: "EZ Platform pod has restarted more than 5 times."
+{{- end }}

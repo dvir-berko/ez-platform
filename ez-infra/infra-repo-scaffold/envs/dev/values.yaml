@@ -1,0 +1,9 @@
+# Dev environment overrides for EZ Platform Helm chart
+# This file lives in the separate dvir-berko/infra repo at envs/dev/values.yaml
+
+global:
+  environment: dev
+
+ingress:
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal

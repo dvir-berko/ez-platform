@@ -170,6 +170,13 @@ jobs:
             --region "${{ steps.cfg.outputs.region }}" \
             --name "${{ steps.cfg.outputs.cluster }}"
 
+      - name: Pre-flight cluster validation
+        run: |
+          echo "Validating cluster connectivity..."
+          kubectl auth can-i list pods --namespace "${{ steps.cfg.outputs.namespace }}" || \
+            { echo "::error::Cannot access namespace ${{ steps.cfg.outputs.namespace }}"; exit 1; }
+          echo "Cluster validation passed"
+
       - name: Install Helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
         with:
@@ -189,25 +196,16 @@ jobs:
             --from-literal=AUTH_GITHUB_CLIENT_SECRET="${AUTH_GITHUB_CLIENT_SECRET}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Initial Helm deploy
-        run: |
-          helm upgrade ez-platform ez-platform/helm \
-            --install \
-            --namespace "${{ steps.cfg.outputs.namespace }}" \
-            --atomic \
-            --wait \
-            --timeout 10m \
-            -f "ez-platform/helm/values.${{ env.DEPLOY_ENV }}.yaml" \
-            --set "image.repository=${{ needs.build.outputs.image-repository }}" \
-            --set "image.tag=${{ needs.build.outputs.image-tag }}" \
-            --set "global.environment=${{ env.DEPLOY_ENV }}" \
-            --set "global.commitSha=${{ github.sha }}" \
-            --set "env.APP_BASE_URL=http://placeholder.local" \
-            --set "env.BACKEND_BASE_URL=http://placeholder.local"
-
       - name: Wait for ALB hostname
         id: alb
+        env:
+          EZ_PLATFORM_PUBLIC_URL: ${{ vars.EZ_PLATFORM_PUBLIC_URL }}
         run: |
+          if [ -n "${EZ_PLATFORM_PUBLIC_URL}" ]; then
+            echo "hostname=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           for _ in $(seq 1 30); do
             HOSTNAME="$(kubectl get ingress ez-platform -n "${{ steps.cfg.outputs.namespace }}" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
             if [ -n "$HOSTNAME" ]; then
@@ -220,7 +218,7 @@ jobs:
           echo "::error::Timed out waiting for the AWS load balancer hostname"
           exit 1
 
-      - name: Finalize public URLs
+      - name: Helm deploy
         env:
           EZ_PLATFORM_PUBLIC_URL: ${{ vars.EZ_PLATFORM_PUBLIC_URL }}
         run: |

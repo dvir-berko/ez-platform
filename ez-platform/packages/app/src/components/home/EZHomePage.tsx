@@ -14,6 +14,8 @@ import {
   Typography,
 } from '@mui/material';
 import { Content, Header, Page } from '@backstage/core-components';
+import { useApi, catalogApiRef } from '@backstage/core-plugin-api';
+import { useState, useEffect } from 'react';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -27,7 +29,10 @@ const T = {
   sub:     'rgba(255,255,255,0.6)',
 } as const;
 
-// ── Mock data ────────────────────────────────────────────────────────────────
+// ── DEMO DATA - Replace with real API integration ────────────────────────────
+const DEMO_MODE = true; // Set to false when real data sources are connected
+
+// TODO: Replace with Backstage catalog API call
 const STATS = [
   { label: 'Services',    value: '24', delta: '+3 this week',  color: T.accent, up: true  },
   { label: 'Deployments', value: '18', delta: '+2 today',      color: T.blue,   up: true  },
@@ -35,6 +40,7 @@ const STATS = [
   { label: 'Pipelines',   value: '12', delta: '+5 today',      color: T.amber,  up: true  },
 ];
 
+// TODO: Replace with Backstage catalog API call
 const PIPELINES = [
   { name: 'api-gateway',       branch: 'main',        status: 'success', ago: '4m ago',   duration: '1m 42s' },
   { name: 'auth-service',      branch: 'feat/oauth2',  status: 'running', ago: 'now',      duration: '—'      },
@@ -43,6 +49,7 @@ const PIPELINES = [
   { name: 'notification-svc',  branch: 'main',         status: 'success', ago: '1h ago',   duration: '0m 58s' },
 ];
 
+// TODO: Replace with Backstage catalog API call
 const ALERTS = [
   { title: 'High CPU — api-gateway (prod)',      sev: 'critical', ago: '8m'  },
   { title: 'Disk > 85% — db-primary (prod)',     sev: 'warning',  ago: '23m' },
@@ -58,6 +65,7 @@ const QUICK_ACTIONS = [
   { label: 'Settings',         icon: '⚙', to: '/settings'     },
 ];
 
+// TODO: Replace with Backstage catalog API call
 const SERVICES = [
   { name: 'api-gateway',      kind: 'Service', owner: 'platform',  env: 'prod',    health: 'Healthy',    deploy: '4m ago'  },
   { name: 'auth-service',     kind: 'Service', owner: 'identity',  env: 'staging', health: 'Deploying',  deploy: 'now'     },
@@ -67,6 +75,7 @@ const SERVICES = [
   { name: 'data-pipeline',    kind: 'Library', owner: 'data-team', env: 'prod',    health: 'Healthy',    deploy: '3h ago'  },
 ];
 
+// TODO: Replace with Backstage catalog API call
 const SCORECARD = [
   { label: 'Has owner',        score: 96 },
   { label: 'Has TechDocs',     score: 72 },
@@ -76,6 +85,7 @@ const SCORECARD = [
   { label: 'On-call assigned', score: 67 },
 ];
 
+// TODO: Replace with Backstage catalog API call
 const INFRA = [
   { env: 'Production',  nodes: 12, pods: 48, health: 'Healthy',   cluster: 'eks-prod-eu-west-1' },
   { env: 'Staging',     nodes: 4,  pods: 16, health: 'Healthy',   cluster: 'eks-stg-eu-west-1'  },
@@ -408,6 +418,20 @@ export const EZHomePage = () => {
         subtitle={`${dateStr} · ${timeStr}`}
       />
       <Content>
+        <div>
+          {DEMO_MODE && (
+            <div style={{
+              background: '#ff6b4a',
+              color: '#fff',
+              padding: '8px 16px',
+              textAlign: 'center',
+              fontSize: '13px',
+              fontWeight: 600,
+              letterSpacing: '0.5px'
+            }}>
+              ⚠ DEMO MODE — Dashboard shows sample data. Connect real data sources before going to production.
+            </div>
+          )}
         {/* ── Stat cards ── */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {STATS.map(s => (
@@ -444,6 +468,7 @@ export const EZHomePage = () => {
             <InfraOverview />
           </Grid>
         </Grid>
+        </div>
       </Content>
     </Page>
   );
