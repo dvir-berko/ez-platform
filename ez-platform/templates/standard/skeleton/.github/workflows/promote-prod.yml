@@ -3,7 +3,7 @@
 #
 # Manual workflow to promote a staging image to production.
 # Requires a staging-* image tag (built from the staging branch).
-# Triggers the GitHub Environment "production" approval gate.
+# Triggers the GitHub Environment "prod" approval gate.
 # ────────────────────────────────────────────────────────────────────────────────
 name: Promote to Production
 
@@ -27,4 +27,6 @@ jobs:
       image-tag:    ${{ inputs.image_tag }}
       reason:       ${{ inputs.reason }}
       infra-repo:   ${{ values.githubOrg }}/infra
+      values-file:  envs/prod/services/${{ values.name }}.yaml
+      image-tag-path: .image.tag
     secrets: inherit

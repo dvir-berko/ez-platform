@@ -36,7 +36,8 @@ make run
 
 ## Deployment
 
-- **Dev:** auto-deploys on merge to `main`
+- **Dev:** auto-deploys on pushes to `dev`
+- **Staging:** auto-deploys on pushes to `staging`
 - **Prod:** deploy by pushing a `vX.Y.Z` tag, then approve in GitHub
 
 See the EZ Golden Path documentation in this repository for the full contract.

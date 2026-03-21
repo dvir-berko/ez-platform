@@ -208,8 +208,14 @@ jobs:
           exit 1
 
       - name: Finalize public URLs
+        env:
+          EZ_PLATFORM_PUBLIC_URL: ${{ vars.EZ_PLATFORM_PUBLIC_URL }}
         run: |
-          PUBLIC_URL="http://${{ steps.alb.outputs.hostname }}"
+          if [ -n "${EZ_PLATFORM_PUBLIC_URL}" ]; then
+            PUBLIC_URL="${EZ_PLATFORM_PUBLIC_URL}"
+          else
+            PUBLIC_URL="http://${{ steps.alb.outputs.hostname }}"
+          fi
 
           helm upgrade ez-platform ez-platform/helm \
             --install \
@@ -232,10 +238,18 @@ jobs:
             --timeout=300s
 
       - name: Publish summary
+        env:
+          EZ_PLATFORM_PUBLIC_URL: ${{ vars.EZ_PLATFORM_PUBLIC_URL }}
         run: |
+          if [ -n "${EZ_PLATFORM_PUBLIC_URL}" ]; then
+            PUBLIC_URL="${EZ_PLATFORM_PUBLIC_URL}"
+          else
+            PUBLIC_URL="http://${{ steps.alb.outputs.hostname }}"
+          fi
+
           echo "## EZ Platform deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: \`${{ env.DEPLOY_ENV }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Namespace: \`${{ steps.cfg.outputs.namespace }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Image: \`${{ needs.build.outputs.image-repository }}:${{ needs.build.outputs.image-tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- URL: http://${{ steps.alb.outputs.hostname }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${PUBLIC_URL}" >> "$GITHUB_STEP_SUMMARY"

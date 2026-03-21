@@ -96,8 +96,9 @@ Outputs: `image-repository`, `image-tag`, `image-uri`, `sbom-artifact`
 ### 4. CD Contract
 
 ```
-Merge to main → deploy to dev (auto)
-Tag vX.Y.Z    → deploy to prod (GitHub Environment approval)
+Push to dev      → deploy to dev (auto)
+Push to staging  → deploy to staging (auto)
+Tag vX.Y.Z       → deploy to prod (GitHub Environment approval)
 
   deploy
   ├── AWS OIDC auth (env-scoped role)
@@ -143,8 +144,9 @@ ez-infra/
 
 Adding a service = adding a block to `terraform.tfvars`. Terraform apply creates:
 - ECR repository (immutable tags, KMS, lifecycle policy)
-- CI IAM role (OIDC trust: any branch in repo)
-- CD Dev IAM role (OIDC trust: `refs/heads/main` only)
+- CI IAM role (OIDC trust: `refs/heads/dev`, `refs/heads/staging`, `refs/heads/main`)
+- CD Dev IAM role (OIDC trust: `refs/heads/dev` only)
+- CD Staging IAM role (OIDC trust: `refs/heads/staging` only)
 - CD Prod IAM role (OIDC trust: `refs/tags/v*` only)
 
 ### 7. EKS Runtime

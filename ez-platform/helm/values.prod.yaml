@@ -1,9 +1,9 @@
-replicaCount: 2
+replicaCount: 1
 
 autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 6
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
 
 resources:
   requests:

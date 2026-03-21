@@ -35,7 +35,7 @@ app.kubernetes.io/version:    {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 ez.platform/team:             {{ .Values.global.team | default "${{ values.team }}" }}
-ez.platform/tier:             "lite"
+ez.platform/tier:             "standard"
 ez.platform/environment:      {{ .Values.global.environment | default "unknown" }}
 {{- end }}
 

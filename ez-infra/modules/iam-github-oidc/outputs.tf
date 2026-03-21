@@ -8,6 +8,11 @@ output "cd_dev_role_arn" {
   value       = aws_iam_role.cd_dev.arn
 }
 
+output "cd_staging_role_arn" {
+  description = "ARN of the CD staging IAM role"
+  value       = aws_iam_role.cd_staging.arn
+}
+
 output "cd_prod_role_arn" {
   description = "ARN of the CD prod IAM role"
   value       = aws_iam_role.cd_prod.arn

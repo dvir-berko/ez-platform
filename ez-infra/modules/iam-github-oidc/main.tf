@@ -59,8 +59,11 @@ data "aws_iam_policy_document" "ci_trust" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      # Scope to specific repo + branch pattern
-      values = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/main"]
+      values = [
+        "repo:${var.github_org}/${var.repo_name}:ref:refs/heads/dev",
+        "repo:${var.github_org}/${var.repo_name}:ref:refs/heads/staging",
+        "repo:${var.github_org}/${var.repo_name}:ref:refs/heads/main",
+      ]
     }
   }
 }
@@ -118,8 +121,35 @@ data "aws_iam_policy_document" "cd_dev_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      # Dev deploys from main branch only
-      values = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/main"]
+      values   = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/dev"]
+    }
+  }
+}
+
+# ── CD Staging Role (deploy to staging EKS namespace) ─────────────────────────
+resource "aws_iam_role" "cd_staging" {
+  name               = "${var.role_prefix}-cd-staging-${var.service_name}"
+  assume_role_policy = data.aws_iam_policy_document.cd_staging_trust.json
+  tags               = merge(var.tags, { "ez.platform/role-type" = "cd-staging" })
+}
+
+data "aws_iam_policy_document" "cd_staging_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [local.oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/staging"]
     }
   }
 }
@@ -144,6 +174,32 @@ resource "aws_eks_access_policy_association" "cd_dev_admin" {
   policy_arn    = local.eks_admin_policy_arn
 
   depends_on = [aws_eks_access_entry.cd_dev]
+
+  access_scope {
+    type = "cluster"
+  }
+}
+
+resource "aws_iam_role_policy" "cd_staging_eks" {
+  name   = "eks-access"
+  role   = aws_iam_role.cd_staging.id
+  policy = data.aws_iam_policy_document.cd_eks.json
+}
+
+resource "aws_eks_access_entry" "cd_staging" {
+  for_each      = local.eks_clusters
+  cluster_name  = each.key
+  principal_arn = aws_iam_role.cd_staging.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "cd_staging_admin" {
+  for_each      = local.eks_clusters
+  cluster_name  = each.key
+  principal_arn = aws_iam_role.cd_staging.arn
+  policy_arn    = local.eks_admin_policy_arn
+
+  depends_on = [aws_eks_access_entry.cd_staging]
 
   access_scope {
     type = "cluster"

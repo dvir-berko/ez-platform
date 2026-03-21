@@ -30,7 +30,8 @@ make run
 
 ## Deployment
 
-- **Dev:** auto-deploys on merge to `main`
+- **Dev:** auto-deploys on pushes to `dev`
+- **Staging:** auto-deploys on pushes to `staging`
 - **Prod:** `git tag v1.0.0 && git push origin v1.0.0` → approve in GitHub
 
 ## Database

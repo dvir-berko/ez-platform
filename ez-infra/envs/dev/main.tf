@@ -126,6 +126,7 @@ resource "aws_ecr_repository_policy" "services" {
         Principal = {
           AWS = [
             module.iam_roles[each.key].cd_dev_role_arn,
+            module.iam_roles[each.key].cd_staging_role_arn,
             module.iam_roles[each.key].cd_prod_role_arn,
           ]
         }

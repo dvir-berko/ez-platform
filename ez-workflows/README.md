@@ -93,8 +93,8 @@ jobs:
 
 | Environment | Gate | Trigger |
 |-------------|------|---------|
-| `dev` | Auto-deploy | Merge to `main` |
-| `staging` | Auto-deploy | Merge to `main` |
+| `dev` | Auto-deploy | Push to `dev` |
+| `staging` | Auto-deploy | Push to `staging` |
 | `prod` | **Required reviewer approval** | Promote a `staging-*` image tag |
 
 Approval gates are configured as **GitHub Environments** on the caller's repository. No additional tooling required.

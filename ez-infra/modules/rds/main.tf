@@ -65,10 +65,10 @@ resource "aws_db_instance" "this" {
   storage_encrypted     = true
   kms_key_id            = var.kms_key_arn != "" ? var.kms_key_arn : null
 
-  multi_az               = var.multi_az
-  publicly_accessible    = false
-  deletion_protection    = var.environment == "prod"
-  skip_final_snapshot    = var.environment != "prod"
+  multi_az                  = var.multi_az
+  publicly_accessible       = false
+  deletion_protection       = var.environment == "prod"
+  skip_final_snapshot       = var.environment != "prod"
   final_snapshot_identifier = var.environment == "prod" ? "${var.service_name}-${var.environment}-final" : null
 
   backup_retention_period = var.environment == "prod" ? 7 : 1
@@ -112,6 +112,6 @@ resource "aws_secretsmanager_secret_version" "db" {
   })
 
   lifecycle {
-    ignore_changes = [secret_string]  # Don't overwrite on rotation
+    ignore_changes = [secret_string] # Don't overwrite on rotation
   }
 }
