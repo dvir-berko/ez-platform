@@ -70,16 +70,29 @@ deny contains msg if {
     )
 }
 
-# Rule: Image must come from approved registry (ECR)
+# Rule: Image must come from approved registry (ECR, quay.io, ghcr.io for non-prod)
 deny contains msg if {
     input.kind == "Deployment"
     some container in input.spec.template.spec.containers
     not startswith(container.image, "placeholder")         # allow policy-check rendering
     not contains(container.image, ".dkr.ecr.")
-    not contains(container.image, "quay.io")               # approved external registries
+    not contains(container.image, "quay.io")               # approved external registries (non-prod only)
     not contains(container.image, "ghcr.io")
     msg := sprintf(
         "Container '%s' image must come from an approved registry",
         [container.name],
+    )
+}
+
+# Rule: Production images must come from ECR only (quay.io / ghcr.io not allowed in prod)
+deny contains msg if {
+    input.kind == "Deployment"
+    data.environment == "prod"
+    some container in input.spec.template.spec.containers
+    not startswith(container.image, "placeholder")         # allow policy-check rendering
+    not contains(container.image, ".dkr.ecr.")
+    msg := sprintf(
+        "Container '%s' in production Deployment '%s' must use an ECR image (public registries not allowed in prod)",
+        [container.name, input.metadata.name],
     )
 }

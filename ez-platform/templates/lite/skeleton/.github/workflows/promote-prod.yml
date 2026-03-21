@@ -21,7 +21,7 @@ on:
 
 jobs:
   promote:
-    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/promote-prod-reusable.yml@main
+    uses: ${{ values.githubOrg }}/ez-workflows/.github/workflows/promote-prod-reusable.yml@v1
     with:
       service-name: ${{ values.name }}
       image-tag:    ${{ inputs.image_tag }}
