@@ -25,17 +25,6 @@ variable "kms_key_arn" {
   default     = ""
 }
 
-variable "ci_role_arns" {
-  description = "IAM role ARNs allowed to push images (CI roles)"
-  type        = list(string)
-}
-
-variable "cd_role_arns" {
-  description = "IAM role ARNs allowed to pull images (CD / EKS roles)"
-  type        = list(string)
-  default     = []
-}
-
 variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)

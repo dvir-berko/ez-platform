@@ -75,23 +75,23 @@ Developer clicks "Create Service" in EZ Portal
 5. Service auto-deploys to dev via Helm
 6. Developer sees live status in EZ Portal
 
-### Flow 2: Deploy to production
+### Flow 2: Promote to prod
 
-1. Create release tag: `git tag v1.0.0 && git push origin v1.0.0`
-2. GitHub Environment "prod" blocks until an approver clicks Approve
-3. After approval: `helm upgrade --install --atomic` runs
-4. Rollout verified (`kubectl rollout status`)
-5. Service is live in prod
+1. Use the `staging-*` image tag produced by the staging CI run.
+2. Open the promotion workflow and select the GitHub Environment `prod`.
+3. The workflow patches the configured prod values file in the infra repo with that exact tag.
+4. After approval: `helm upgrade --install --atomic` runs.
+5. Rollout is verified (`kubectl rollout status`) and the service is live in prod.
 
 ## Security Model
 
 | Concern | Solution |
 |---------|---------|
 | AWS auth | **OIDC only** — no static keys in GitHub Secrets |
-| Prod deploy | **GitHub Environment approval** required |
-| Prod OIDC trust | Only trusts `refs/tags/v*` (tags, not branches) |
+| Prod promotion | **GitHub Environment `prod` approval** required |
+| Prod deployment roles | Only trust `refs/tags/v*` (tags, not branches) |
 | Container security | Non-root user, `readOnlyRootFilesystem`, dropped capabilities |
-| Image scanning | Grype on every build, SARIF uploaded to GitHub Security |
+| Image scanning | Trivy on every build, SARIF uploaded to GitHub Security |
 | SBOM | Syft (SPDX) on every build, stored as artifact |
 | Secret management | AWS Secrets Manager → External Secrets Operator |
 | K8s policies | OPA/conftest on every PR, Kyverno in cluster |

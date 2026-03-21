@@ -13,11 +13,11 @@ data "aws_caller_identity" "current" {}
 resource "aws_iam_openid_connect_provider" "github" {
   count = var.create_oidc_provider ? 1 : 0
 
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",  # GitHub OIDC cert (pre-2023)
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd",  # GitHub OIDC cert (2023+)
+    "6938fd4d98bab03faadb97b34396831e3780aea1", # GitHub OIDC cert (pre-2023)
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd", # GitHub OIDC cert (2023+)
   ]
 
   tags = var.tags
@@ -27,6 +27,13 @@ locals {
   oidc_provider_arn = var.create_oidc_provider ? (
     aws_iam_openid_connect_provider.github[0].arn
   ) : var.existing_oidc_provider_arn
+
+  eks_clusters = {
+    for cluster_arn in var.eks_cluster_arns :
+    split("/", cluster_arn)[1] => cluster_arn
+  }
+
+  eks_admin_policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
 }
 
 # ── CI Role (push to ECR) ────────────────────────────────────────────────────
@@ -53,7 +60,7 @@ data "aws_iam_policy_document" "ci_trust" {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       # Scope to specific repo + branch pattern
-      values   = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/main"]
+      values = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/main"]
     }
   }
 }
@@ -112,7 +119,7 @@ data "aws_iam_policy_document" "cd_dev_trust" {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       # Dev deploys from main branch only
-      values   = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/main"]
+      values = ["repo:${var.github_org}/${var.repo_name}:ref:refs/heads/main"]
     }
   }
 }
@@ -121,6 +128,26 @@ resource "aws_iam_role_policy" "cd_dev_eks" {
   name   = "eks-access"
   role   = aws_iam_role.cd_dev.id
   policy = data.aws_iam_policy_document.cd_eks.json
+}
+
+resource "aws_eks_access_entry" "cd_dev" {
+  for_each      = local.eks_clusters
+  cluster_name  = each.key
+  principal_arn = aws_iam_role.cd_dev.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "cd_dev_admin" {
+  for_each      = local.eks_clusters
+  cluster_name  = each.key
+  principal_arn = aws_iam_role.cd_dev.arn
+  policy_arn    = local.eks_admin_policy_arn
+
+  depends_on = [aws_eks_access_entry.cd_dev]
+
+  access_scope {
+    type = "cluster"
+  }
 }
 
 # ── CD Prod Role (deploy to prod EKS namespace) ───────────────────────────────
@@ -147,7 +174,7 @@ data "aws_iam_policy_document" "cd_prod_trust" {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       # Prod deploys from tags only
-      values   = ["repo:${var.github_org}/${var.repo_name}:ref:refs/tags/v*"]
+      values = ["repo:${var.github_org}/${var.repo_name}:ref:refs/tags/v*"]
     }
   }
 }
@@ -156,6 +183,26 @@ resource "aws_iam_role_policy" "cd_prod_eks" {
   name   = "eks-access"
   role   = aws_iam_role.cd_prod.id
   policy = data.aws_iam_policy_document.cd_eks.json
+}
+
+resource "aws_eks_access_entry" "cd_prod" {
+  for_each      = local.eks_clusters
+  cluster_name  = each.key
+  principal_arn = aws_iam_role.cd_prod.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "cd_prod_admin" {
+  for_each      = local.eks_clusters
+  cluster_name  = each.key
+  principal_arn = aws_iam_role.cd_prod.arn
+  policy_arn    = local.eks_admin_policy_arn
+
+  depends_on = [aws_eks_access_entry.cd_prod]
+
+  access_scope {
+    type = "cluster"
+  }
 }
 
 data "aws_iam_policy_document" "cd_eks" {

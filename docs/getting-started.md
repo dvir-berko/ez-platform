@@ -50,19 +50,19 @@ Backstage will:
 - CD runs automatically to **dev** on merge to main
 - Visit **EZ Portal** → your service to see live status
 
-## Deploy to production
+## Promote to prod
 
-Production deploys are triggered by **version tags**:
+Prod promotions use the `staging-*` image tag produced by the staging branch:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+staging-abc12345
 ```
 
-This triggers the `Deploy → prod` workflow, which:
+This triggers the `Promote → prod` workflow, which:
 1. Waits for approval in the GitHub Environment `prod`
-2. After approval → `helm upgrade --install --atomic`
-3. If deploy fails → Helm automatically rolls back
+2. Patches the configured prod values file in your infra repo with that exact tag
+3. After approval → `helm upgrade --install --atomic`
+4. If deploy fails → Helm automatically rolls back
 
 ### Who can approve?
 

@@ -1,7 +1,7 @@
-# ── Production environment overrides ───────────────────────────────────────
-# Image tag is updated by the promote-prod workflow via yq patch
+# ── prod environment overrides ─────────────────────────────────────────────
+# Image tag is updated by the promote-prod workflow on the explicit values file
 image:
-  tag: "prod-latest"  # updated by promote-prod: yq -i '.image.tag = "staging-XXXXXXXX"'
+  tag: "prod-latest"  # updated by promote-prod with the selected staging-* tag
 
 replicaCount: 3
 

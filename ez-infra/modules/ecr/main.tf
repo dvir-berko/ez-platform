@@ -5,12 +5,12 @@
 #   - Image scanning on push
 #   - Lifecycle policy (clean old images)
 #   - KMS encryption
-#   - Repository policy scoped to CI role
+#   - Repository policy managed by the environment roots
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "aws_ecr_repository" "this" {
   name                 = var.repository_name
-  image_tag_mutability = "IMMUTABLE"  # Immutable tags = reproducible deploys
+  image_tag_mutability = "IMMUTABLE" # Immutable tags = reproducible deploys
 
   image_scanning_configuration {
     scan_on_push = true
@@ -56,46 +56,6 @@ resource "aws_ecr_lifecycle_policy" "this" {
         }
         action = { type = "expire" }
       }
-    ]
-  })
-}
-
-# Repository policy: allow CI role to push, allow CD roles to pull
-resource "aws_ecr_repository_policy" "this" {
-  repository = aws_ecr_repository.this.name
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowCIPush"
-        Effect = "Allow"
-        Principal = {
-          AWS = var.ci_role_arns
-        }
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:CompleteLayerUpload",
-          "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
-          "ecr:UploadLayerPart",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-        ]
-      },
-      {
-        Sid    = "AllowCDPull"
-        Effect = "Allow"
-        Principal = {
-          AWS = var.cd_role_arns
-        }
-        Action = [
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:DescribeImages",
-        ]
-      },
     ]
   })
 }

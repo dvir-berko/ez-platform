@@ -60,11 +60,11 @@ provider "kubernetes" {
 
 # ── GitHub OIDC Provider (created once per account) ──────────────────────────
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",  # GitHub OIDC cert (pre-2023)
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd",  # GitHub OIDC cert (2023+)
+    "6938fd4d98bab03faadb97b34396831e3780aea1", # GitHub OIDC cert (pre-2023)
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd", # GitHub OIDC cert (2023+)
   ]
 
   tags = { Name = "github-actions-oidc" }
@@ -79,10 +79,6 @@ module "services" {
   repository_name = "${var.github_org}/${each.key}"
   service_name    = each.key
   team            = each.value.team
-
-  # Roles attached separately below after IAM roles are created
-  ci_role_arns = []
-  cd_role_arns = []
 }
 
 # Step 2: Create IAM roles (needs ECR ARN from step 1)
@@ -111,8 +107,8 @@ resource "aws_ecr_repository_policy" "services" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowCIPush"
-        Effect = "Allow"
+        Sid       = "AllowCIPush"
+        Effect    = "Allow"
         Principal = { AWS = module.iam_roles[each.key].ci_role_arn }
         Action = [
           "ecr:BatchCheckLayerAvailability",
@@ -122,6 +118,22 @@ resource "aws_ecr_repository_policy" "services" {
           "ecr:UploadLayerPart",
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage",
+        ]
+      },
+      {
+        Sid    = "AllowCDPull"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            module.iam_roles[each.key].cd_dev_role_arn,
+            module.iam_roles[each.key].cd_prod_role_arn,
+          ]
+        }
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:DescribeImages",
         ]
       },
     ]
