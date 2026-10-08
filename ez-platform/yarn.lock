@@ -12830,8 +12830,36 @@ apg-lite@^1.0.3, apg-lite@^1.0.4:
   integrity sha512-SlI+nLMQDzCZfS39ihzjGp3JNBQfJXyMi6cg9tkLOCPVErgFsUIAEdO9IezR7kbP5Xd0ozcPNQBkf9TO5cHgWw==
 
 "app@link:packages/app":
-  version "0.0.0"
-  uid ""
+  version "0.1.0"
+  dependencies:
+    "@backstage/app-defaults" "^1.5.0"
+    "@backstage/catalog-model" "^1.4.5"
+    "@backstage/core-app-api" "^1.12.0"
+    "@backstage/core-components" "^0.14.0"
+    "@backstage/core-plugin-api" "^1.9.0"
+    "@backstage/integration-react" "^1.1.24"
+    "@backstage/plugin-api-docs" "^0.11.0"
+    "@backstage/plugin-auth-backend-module-github-provider" "^0.1.16"
+    "@backstage/plugin-catalog" "^1.19.0"
+    "@backstage/plugin-catalog-graph" "^0.4.12"
+    "@backstage/plugin-catalog-import" "^0.12.0"
+    "@backstage/plugin-catalog-react" "^1.10.0"
+    "@backstage/plugin-github-actions" "^0.6.14"
+    "@backstage/plugin-kubernetes" "^0.11.9"
+    "@backstage/plugin-org" "^0.6.30"
+    "@backstage/plugin-scaffolder" "^1.20.0"
+    "@backstage/plugin-search" "^1.4.7"
+    "@backstage/plugin-search-react" "^1.7.6"
+    "@backstage/plugin-techdocs" "^1.10.0"
+    "@backstage/plugin-techdocs-react" "^1.1.13"
+    "@backstage/plugin-user-settings" "^0.8.0"
+    "@backstage/theme" "^0.5.4"
+    "@emotion/react" "^11.14.0"
+    "@emotion/styled" "^11.14.0"
+    "@mui/material" "^5.16.14"
+    react "^18.0.2"
+    react-dom "^18.0.2"
+    react-router-dom "^6.3.0"
 
 append-field@^1.0.0:
   version "1.0.0"
@@ -26391,9 +26419,9 @@ vm-browserify@^1.0.1:
   integrity sha512-2ham8XPWTONajOR0ohOKOHXkm3+gaBmGut3SRuu75xLd/RRaY6vqgh8NBYYk7+RW3u5AtzPQZG8F10LHkl0lAQ==
 
 vm2@^3.10.0:
-  version "3.10.5"
-  resolved "https://registry.yarnpkg.com/vm2/-/vm2-3.10.5.tgz#cc79e75bc344805bc9796a28dc91baa388dc944f"
-  integrity sha512-3P/2QDccVFBcujfCOeP8vVNuGfuBJHEuvGR8eMmI10p/iwLL2UwF5PDaNaoOS2pRGQEDmJRyeEcc8kmm2Z59RA==
+  version "3.12.2"
+  resolved "https://registry.yarnpkg.com/vm2/-/vm2-3.12.2.tgz#0a8cab04496918a94911498d6f42f3d3cc06df7e"
+  integrity sha512-LRHt4xU6eXshlZEcSZVrTehLGxRDjHvjmFPGwEp4xGpZX61QzH6Xm9wK2nU7XAp36V1w2xILAL1LwxVkgD1Ipw==
   dependencies:
     acorn "^8.15.0"
     acorn-walk "^8.3.4"
