@@ -5996,15 +5996,15 @@
     tslib "^2.8.1"
 
 "@graphql-tools/executor-legacy-ws@^1.1.25":
-  version "1.1.25"
-  resolved "https://registry.yarnpkg.com/@graphql-tools/executor-legacy-ws/-/executor-legacy-ws-1.1.25.tgz#235c334443a4dba79ceff9c20b0a03e766743d4c"
-  integrity sha512-6uf4AEXO0QMxJ7AWKVPqEZXgYBJaiz5vf29X0boG8QtcqWy8mqkXKWLND2Swdx0SbEx0efoGFcjuKufUcB0ASQ==
+  version "1.1.38"
+  resolved "https://registry.yarnpkg.com/@graphql-tools/executor-legacy-ws/-/executor-legacy-ws-1.1.38.tgz#29dd2b15bd85d0062f240d7503171dae1e01983d"
+  integrity sha512-mamb2so0wYF27Zkwgs+idffOswL3L6got2pimXV42mBtxlgDp6QaKOa/0Pv3+GRtWdeetPt5SS5jypTWHwvp9A==
   dependencies:
-    "@graphql-tools/utils" "^11.0.0"
-    "@types/ws" "^8.0.0"
+    "@graphql-tools/utils" "^12.0.4"
+    "@types/ws" "^8.18.2"
     isomorphic-ws "^5.0.0"
     tslib "^2.4.0"
-    ws "^8.19.0"
+    ws "^8.21.3"
 
 "@graphql-tools/executor@^1.4.13":
   version "1.5.1"
@@ -6125,6 +6125,16 @@
   dependencies:
     "@graphql-typed-document-node/core" "^3.1.1"
     "@whatwg-node/promise-helpers" "^1.0.0"
+    cross-inspect "1.0.1"
+    tslib "^2.4.0"
+
+"@graphql-tools/utils@^12.0.4":
+  version "12.0.4"
+  resolved "https://registry.yarnpkg.com/@graphql-tools/utils/-/utils-12.0.4.tgz#c36581c7cb79f482fdfd2e9ba5dfdcf8e1cbb17d"
+  integrity sha512-hJmeBRrK1OUABqRxLXB1YwrBB+3zTXeRJYb5PaF7CweV80zNGnN640Jz+0BrCaUE8HBk6KtoVXM/tUScUsKdeg==
+  dependencies:
+    "@graphql-typed-document-node/core" "^3.1.1"
+    "@whatwg-node/promise-helpers" "^2.0.0"
     cross-inspect "1.0.1"
     tslib "^2.4.0"
 
@@ -12165,6 +12175,13 @@
   dependencies:
     "@types/node" "*"
 
+"@types/ws@^8.18.2":
+  version "8.18.2"
+  resolved "https://registry.yarnpkg.com/@types/ws/-/ws-8.18.2.tgz#25d6321b30ef0fddf6cc7052b4eef9ce4e412b6e"
+  integrity sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==
+  dependencies:
+    "@types/node" "*"
+
 "@types/xml-crypto@^1.4.2":
   version "1.4.6"
   resolved "https://registry.yarnpkg.com/@types/xml-crypto/-/xml-crypto-1.4.6.tgz#6d1fd7d41c91554f2aed97c2ba273af0388fa5cf"
@@ -12526,6 +12543,13 @@
   dependencies:
     tslib "^2.6.3"
 
+"@whatwg-node/promise-helpers@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@whatwg-node/promise-helpers/-/promise-helpers-2.0.0.tgz#93a89655355bbd5d7e2b0d64fc93a88224d7030e"
+  integrity sha512-/i9CS0Z96o+cPwaYoAyVxAThDiUX1wV3tDmNWPJbn+vtdR+JftuCDg1NGCXBrzIYVDGkJ8uT6ctwmrBOUzOpKQ==
+  dependencies:
+    tslib "^2.6.3"
+
 "@wmhilton/crypto-hash@^1.0.2":
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/@wmhilton/crypto-hash/-/crypto-hash-1.0.2.tgz#76887d8ad999fc5eeb19c2894087657778c5df73"
@@ -12830,8 +12854,36 @@ apg-lite@^1.0.3, apg-lite@^1.0.4:
   integrity sha512-SlI+nLMQDzCZfS39ihzjGp3JNBQfJXyMi6cg9tkLOCPVErgFsUIAEdO9IezR7kbP5Xd0ozcPNQBkf9TO5cHgWw==
 
 "app@link:packages/app":
-  version "0.0.0"
-  uid ""
+  version "0.1.0"
+  dependencies:
+    "@backstage/app-defaults" "^1.5.0"
+    "@backstage/catalog-model" "^1.4.5"
+    "@backstage/core-app-api" "^1.12.0"
+    "@backstage/core-components" "^0.14.0"
+    "@backstage/core-plugin-api" "^1.9.0"
+    "@backstage/integration-react" "^1.1.24"
+    "@backstage/plugin-api-docs" "^0.11.0"
+    "@backstage/plugin-auth-backend-module-github-provider" "^0.1.16"
+    "@backstage/plugin-catalog" "^1.19.0"
+    "@backstage/plugin-catalog-graph" "^0.4.12"
+    "@backstage/plugin-catalog-import" "^0.12.0"
+    "@backstage/plugin-catalog-react" "^1.10.0"
+    "@backstage/plugin-github-actions" "^0.6.14"
+    "@backstage/plugin-kubernetes" "^0.11.9"
+    "@backstage/plugin-org" "^0.6.30"
+    "@backstage/plugin-scaffolder" "^1.20.0"
+    "@backstage/plugin-search" "^1.4.7"
+    "@backstage/plugin-search-react" "^1.7.6"
+    "@backstage/plugin-techdocs" "^1.10.0"
+    "@backstage/plugin-techdocs-react" "^1.1.13"
+    "@backstage/plugin-user-settings" "^0.8.0"
+    "@backstage/theme" "^0.5.4"
+    "@emotion/react" "^11.14.0"
+    "@emotion/styled" "^11.14.0"
+    "@mui/material" "^5.16.14"
+    react "^18.0.2"
+    react-dom "^18.0.2"
+    react-router-dom "^6.3.0"
 
 append-field@^1.0.0:
   version "1.0.0"
@@ -26829,6 +26881,11 @@ ws@^7.4.6:
   version "7.5.10"
   resolved "https://registry.yarnpkg.com/ws/-/ws-7.5.10.tgz#58b5c20dc281633f6c19113f39b349bd8bd558d9"
   integrity sha512-+dbF1tHwZpXcbOJdVOkzLDxZP1ailvSxM6ZweXTegylPny803bFhA+vqBYw4s31NSAk4S2Qz+AKXK9a4wkdjcQ==
+
+ws@^8.21.3:
+  version "8.22.0"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-8.22.0.tgz#40f16e1d7588ac0575041be5c49b8eb261c28e73"
+  integrity sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==
 
 wsl-utils@^0.1.0:
   version "0.1.0"
