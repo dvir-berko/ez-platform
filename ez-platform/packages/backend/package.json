@@ -27,7 +27,7 @@
     "@backstage/plugin-scaffolder-backend":           "^1.22.0",
     "@backstage/plugin-search-backend":               "^1.5.5",
     "@backstage/plugin-search-backend-module-catalog": "^0.1.22",
-    "@backstage/plugin-techdocs-backend":             "^1.10.4",
+    "@backstage/plugin-techdocs-backend":             "^2.2.4",
     "app":                                            "link:../app",
     "node-gyp":                                       "^10.0.1"
   },
