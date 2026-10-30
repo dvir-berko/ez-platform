@@ -12830,8 +12830,36 @@ apg-lite@^1.0.3, apg-lite@^1.0.4:
   integrity sha512-SlI+nLMQDzCZfS39ihzjGp3JNBQfJXyMi6cg9tkLOCPVErgFsUIAEdO9IezR7kbP5Xd0ozcPNQBkf9TO5cHgWw==
 
 "app@link:packages/app":
-  version "0.0.0"
-  uid ""
+  version "0.1.0"
+  dependencies:
+    "@backstage/app-defaults" "^1.5.0"
+    "@backstage/catalog-model" "^1.4.5"
+    "@backstage/core-app-api" "^1.12.0"
+    "@backstage/core-components" "^0.14.0"
+    "@backstage/core-plugin-api" "^1.9.0"
+    "@backstage/integration-react" "^1.1.24"
+    "@backstage/plugin-api-docs" "^0.11.0"
+    "@backstage/plugin-auth-backend-module-github-provider" "^0.1.16"
+    "@backstage/plugin-catalog" "^1.19.0"
+    "@backstage/plugin-catalog-graph" "^0.4.12"
+    "@backstage/plugin-catalog-import" "^0.12.0"
+    "@backstage/plugin-catalog-react" "^1.10.0"
+    "@backstage/plugin-github-actions" "^0.6.14"
+    "@backstage/plugin-kubernetes" "^0.11.9"
+    "@backstage/plugin-org" "^0.6.30"
+    "@backstage/plugin-scaffolder" "^1.20.0"
+    "@backstage/plugin-search" "^1.4.7"
+    "@backstage/plugin-search-react" "^1.7.6"
+    "@backstage/plugin-techdocs" "^1.10.0"
+    "@backstage/plugin-techdocs-react" "^1.1.13"
+    "@backstage/plugin-user-settings" "^0.8.0"
+    "@backstage/theme" "^0.5.4"
+    "@emotion/react" "^11.14.0"
+    "@emotion/styled" "^11.14.0"
+    "@mui/material" "^5.16.14"
+    react "^18.0.2"
+    react-dom "^18.0.2"
+    react-router-dom "^6.3.0"
 
 append-field@^1.0.0:
   version "1.0.0"
@@ -18168,9 +18196,9 @@ iovalkey@^0.3.3:
     standard-as-callback "^2.1.0"
 
 ip-address@^10.0.1:
-  version "10.1.0"
-  resolved "https://registry.yarnpkg.com/ip-address/-/ip-address-10.1.0.tgz#d8dcffb34d0e02eb241427444a6e23f5b0595aa4"
-  integrity sha512-XXADHxXmvT9+CRxhXg56LJovE+bmWnEWB78LB83VZTprKTmaC5QfruXocxzTZ2Kl0DNwKuBdlIhjL8LeY8Sf8Q==
+  version "10.7.5"
+  resolved "https://registry.yarnpkg.com/ip-address/-/ip-address-10.7.5.tgz#4c4c423f6477d0b0b5c2ea59ac77e93eff49003e"
+  integrity sha512-t2v0rkILYv9WXmSL7TpAaU3HXgaFYOPUcH3QHgwQ++gpJuH3bqyMy4Fvt/DJCTKwzH3Cf+bAp5W/mFL39KPLzA==
 
 ip-regex@^4.1.0:
   version "4.3.0"
